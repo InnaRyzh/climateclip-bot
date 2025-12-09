@@ -12,5 +12,5 @@ COPY . .
 WORKDIR /app/bot
 
 # Запуск бота
-CMD ["node", "--max-old-space-size=16384", "--loader", "tsx", "server.ts"]
+CMD ["npx", "tsx", "server.ts"]
 
