@@ -1,0 +1,10 @@
+[phases.setup]
+nixPkgs = ["nodejs-18_x", "ffmpeg"]
+
+[phases.install]
+cmds = ["cd bot && npm install"]
+
+[start]
+cmd = "cd bot && npm start"
+
+

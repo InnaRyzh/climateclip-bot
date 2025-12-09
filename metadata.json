@@ -1,0 +1,5 @@
+{
+  "name": "ClimateClip Studio",
+  "description": "Автоматизированное создание климатических сводок и новостных роликов для Telegram.",
+  "requestFramePermissions": []
+}

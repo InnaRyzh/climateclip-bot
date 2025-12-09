@@ -1,0 +1,7 @@
+node_modules
+.env
+dist
+.DS_Store
+bot/temp
+bot/node_modules
+bot/.env
