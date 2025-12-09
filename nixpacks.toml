@@ -1,0 +1,9 @@
+[phases.setup]
+nixPkgs = ['nodejs-20_x']
+
+[phases.install]
+cmds = ['cd bot && npm ci']
+
+[start]
+cmd = 'cd bot && npm start'
+

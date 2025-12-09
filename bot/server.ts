@@ -11,6 +11,10 @@ import { fileURLToPath } from 'url';
 
 config();
 
+console.log('=== Starting ClimateClip Bot ===');
+console.log('Node version:', process.version);
+console.log('Working directory:', process.cwd());
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -18,6 +22,10 @@ const app = express();
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PORT = process.env.PORT || 3000;
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
+
+console.log('PORT:', PORT);
+console.log('BOT_TOKEN:', BOT_TOKEN ? 'SET' : 'MISSING');
+console.log('PERPLEXITY_API_KEY:', PERPLEXITY_API_KEY ? 'SET' : 'MISSING');
 
 if (!BOT_TOKEN) {
   console.error('Ошибка: BOT_TOKEN не найден в .env');
@@ -326,6 +334,8 @@ app.post('/upload-result/:id', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Bot server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Bot server running on port ${PORT}`);
+  console.log(`✅ Health check available at http://0.0.0.0:${PORT}/health`);
+  console.log(`✅ Bot is ready to receive messages`);
 });
