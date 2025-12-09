@@ -28,7 +28,25 @@ if (!PERPLEXITY_API_KEY) {
   console.warn('Внимание: PERPLEXITY_API_KEY не найден. Используется алгоритмический фолбэк без AI.');
 }
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(BOT_TOKEN, { 
+  polling: {
+    interval: 300,
+    autoStart: true,
+    params: {
+      timeout: 10
+    }
+  }
+});
+
+bot.on('polling_error', (error) => {
+  console.error('Polling error:', error);
+});
+
+bot.on('error', (error) => {
+  console.error('Bot error:', error);
+});
+
+console.log('Telegram bot initialized');
 
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
@@ -281,6 +299,14 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     console.error(e);
   }
 }
+
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    bot: BOT_TOKEN ? 'configured' : 'missing',
+    port: PORT 
+  });
+});
 
 app.post('/upload-result/:id', (req, res) => {
   const { id } = req.params;
