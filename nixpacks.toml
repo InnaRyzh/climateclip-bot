@@ -2,8 +2,8 @@
 nixPkgs = ['nodejs-20_x']
 
 [phases.install]
-cmds = ['cd bot && npm ci']
+cmds = ['cd bot && npm ci --production=false']
 
 [start]
-cmd = 'cd bot && npm start'
+cmd = 'cd bot && node --max-old-space-size=16384 --loader tsx server.ts'
 
