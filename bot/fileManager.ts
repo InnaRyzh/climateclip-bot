@@ -369,10 +369,6 @@ export async function downloadFile(
     throw new Error('Bot token not available');
   }
   
-  // Проверяем, используем ли локальный API
-  const useLocalApi = process.env.USE_LOCAL_API === 'true';
-  const localApiUrl = process.env.LOCAL_API_URL || 'http://localhost:8081';
-  
   // Формируем URL (используем локальный API, если включен)
   const baseUrl = useLocalApi ? localApiUrl : 'https://api.telegram.org';
   const fileUrl = `${baseUrl}/file/bot${token}/${file.file_path}`;
