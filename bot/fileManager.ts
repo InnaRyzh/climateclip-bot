@@ -321,6 +321,16 @@ export async function downloadFile(
   let file;
   let retryCount = 0;
   
+  // Проверяем, используем ли локальный API
+  const useLocalApi = process.env.USE_LOCAL_API === 'true';
+  const localApiUrl = process.env.LOCAL_API_URL || 'http://localhost:8081';
+  
+  if (useLocalApi) {
+    console.log(`Using local API for getFile: ${localApiUrl}`);
+  } else {
+    console.log('Using standard Telegram Bot API for getFile (20MB limit)');
+  }
+  
   // Retry для получения информации о файле
   while (retryCount < MAX_RETRIES) {
     try {
@@ -333,6 +343,12 @@ export async function downloadFile(
         const fileSizeMB = error?.response?.body?.file_size 
           ? (error.response.body.file_size / 1024 / 1024).toFixed(1)
           : '>20';
+        
+        if (useLocalApi) {
+          console.error(`ERROR: Local API should support files up to 2GB, but got error: ${error.message}`);
+          console.error(`Check if local Telegram Bot API server is running on ${localApiUrl}`);
+        }
+        
         throw new Error(`Файл слишком большой (${fileSizeMB} МБ). Telegram Bot API позволяет скачивать видео до 20 МБ.\n\n💡 Решение: отправьте файл как документ (File/Document) вместо видео - для документов лимит 50 МБ, и бот автоматически обрежет и сожмет его до 6 секунд с максимальным качеством.`);
       }
       if (retryCount >= MAX_RETRIES) {
@@ -353,10 +369,19 @@ export async function downloadFile(
     throw new Error('Bot token not available');
   }
   
-  // Формируем URL
-  const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+  // Проверяем, используем ли локальный API
+  const useLocalApi = process.env.USE_LOCAL_API === 'true';
+  const localApiUrl = process.env.LOCAL_API_URL || 'http://localhost:8081';
+  
+  // Формируем URL (используем локальный API, если включен)
+  const baseUrl = useLocalApi ? localApiUrl : 'https://api.telegram.org';
+  const fileUrl = `${baseUrl}/file/bot${token}/${file.file_path}`;
   const fileName = path.basename(file.file_path) || `file_${Date.now()}.mp4`;
   const localPath = path.join(TEMP_DIR, `${Date.now()}_${fileName}`);
+  
+  if (useLocalApi) {
+    console.log(`Downloading via local API: ${fileUrl}`);
+  }
   
   try {
     await downloadFileWithRetry(fileUrl, localPath);
