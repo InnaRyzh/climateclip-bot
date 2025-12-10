@@ -210,7 +210,12 @@ async function downloadFileWithRetry(
 
     resetTimeout();
 
-    request = https.get(fileUrl, {
+    // Определяем протокол из URL
+    const url = new URL(fileUrl);
+    const isHttps = url.protocol === 'https:';
+    const httpModule = isHttps ? https : http;
+
+    request = httpModule.get(fileUrl, {
       timeout: DOWNLOAD_TIMEOUT,
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; TelegramBot/1.0)',
