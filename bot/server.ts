@@ -319,9 +319,36 @@ async function processGridTemplate(chatId: number, state: UserState) {
     userStates.delete(chatId);
     console.log(`Grid done in ${(Date.now() - started) / 1000}s`);
     
+    // Показываем меню снова для следующего клипа
+    await bot.sendMessage(chatId, '✅ Клип готов! Хотите создать ещё один?', {
+      reply_markup: {
+        keyboard: [
+          [{ text: '1. Сетка 4 видео (Grid)' }],
+          [{ text: '2. Новости (News)' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true
+      }
+    });
+    userStates.set(chatId, { step: 'waiting_template' });
+    
   } catch (e) {
     await bot.sendMessage(chatId, `❌ Ошибка: ${e instanceof Error ? e.message : String(e)}`);
     console.error(e);
+    
+    // Показываем меню даже при ошибке
+    userStates.delete(chatId);
+    await bot.sendMessage(chatId, 'Выберите шаблон для нового клипа:', {
+      reply_markup: {
+        keyboard: [
+          [{ text: '1. Сетка 4 видео (Grid)' }],
+          [{ text: '2. Новости (News)' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true
+      }
+    });
+    userStates.set(chatId, { step: 'waiting_template' });
   }
 }
 
@@ -379,9 +406,36 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     userStates.delete(chatId);
     console.log(`News done in ${(Date.now() - started) / 1000}s`);
     
+    // Показываем меню снова для следующего клипа
+    await bot.sendMessage(chatId, '✅ Клип готов! Хотите создать ещё один?', {
+      reply_markup: {
+        keyboard: [
+          [{ text: '1. Сетка 4 видео (Grid)' }],
+          [{ text: '2. Новости (News)' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true
+      }
+    });
+    userStates.set(chatId, { step: 'waiting_template' });
+    
   } catch (e) {
     await bot.sendMessage(chatId, `❌ Ошибка: ${e instanceof Error ? e.message : String(e)}`);
     console.error(e);
+    
+    // Показываем меню даже при ошибке
+    userStates.delete(chatId);
+    await bot.sendMessage(chatId, 'Выберите шаблон для нового клипа:', {
+      reply_markup: {
+        keyboard: [
+          [{ text: '1. Сетка 4 видео (Grid)' }],
+          [{ text: '2. Новости (News)' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true
+      }
+    });
+    userStates.set(chatId, { step: 'waiting_template' });
   }
 }
 
