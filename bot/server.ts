@@ -1,5 +1,6 @@
 import express from 'express';
 import { config } from 'dotenv';
+import TelegramBot from 'node-telegram-bot-api';
 import { renderVideo } from './videoRenderer.js';
 import { convertWebmToMp4 } from './videoConverter.js';
 import { downloadFile, cleanupFiles, trimVideoToDuration } from './fileManager.js';
@@ -39,15 +40,12 @@ if (!PERPLEXITY_API_KEY) {
 const USE_LOCAL_API = process.env.USE_LOCAL_API === 'true';
 const LOCAL_API_URL = process.env.LOCAL_API_URL || 'http://localhost:8081';
 
-// Импортируем TelegramBot через require для возможности monkey patching
-const TelegramBotModule = require('node-telegram-bot-api');
-
 // Если используем локальный API, переопределяем baseURL через monkey patching
 if (USE_LOCAL_API) {
   // Переопределяем метод _request для использования локального сервера
-  const originalRequest = TelegramBotModule.prototype._request;
+  const originalRequest = (TelegramBot as any).prototype._request;
   
-  TelegramBotModule.prototype._request = function(options: any, callback: any) {
+  (TelegramBot as any).prototype._request = function(options: any, callback: any) {
     // Заменяем стандартный URL на локальный
     if (options.url && typeof options.url === 'string' && options.url.includes('api.telegram.org')) {
       options.url = options.url.replace('https://api.telegram.org', LOCAL_API_URL);
@@ -60,8 +58,6 @@ if (USE_LOCAL_API) {
 } else {
   console.log('Using standard Telegram Bot API (20MB limit)');
 }
-
-const TelegramBot = TelegramBotModule;
 
 const botOptions: any = { 
   polling: {
