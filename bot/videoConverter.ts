@@ -8,8 +8,10 @@ if (ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
 }
 
-export async function convertWebmToMp4(inputPath: string): Promise<string> {
-  const outputPath = inputPath.replace('.webm', '.mp4');
+export async function convertWebmToMp4(inputPath: string, outputFileName?: string): Promise<string> {
+  const outputPath = outputFileName 
+    ? path.join(path.dirname(inputPath), outputFileName)
+    : inputPath.replace('.webm', '.mp4');
   
   console.log(`Starting conversion: ${inputPath} -> ${outputPath}`);
   
