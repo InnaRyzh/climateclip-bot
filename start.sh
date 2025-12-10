@@ -31,7 +31,7 @@ if [ -n "$TELEGRAM_API_ID" ] && [ -n "$TELEGRAM_API_HASH" ]; then
     --api-id=${TELEGRAM_API_ID} \
     --api-hash=${TELEGRAM_API_HASH} \
     --http-port=8081 \
-    --local-database-path=/tmp/telegram-bot-api-data \
+    --dir=/tmp/telegram-bot-api-data \
     > /tmp/telegram-bot-api.log 2>&1 &
   
   TELEGRAM_API_PID=$!
