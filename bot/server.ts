@@ -69,6 +69,12 @@ const botOptions: any = {
   }
 };
 
+// Если используем локальный API, добавляем baseApiUrl
+if (USE_LOCAL_API) {
+  botOptions.baseApiUrl = LOCAL_API_URL;
+  console.log(`Bot will use local API: ${LOCAL_API_URL}`);
+}
+
 const bot = new TelegramBot(BOT_TOKEN, botOptions);
 
 bot.on('polling_error', (error) => {
