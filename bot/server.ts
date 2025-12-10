@@ -284,6 +284,7 @@ bot.on('message', async (msg) => {
          await bot.sendMessage(chatId, '❌ Отправьте: Страна (строка 1), Дата (строка 2), Текст (далее)');
        }
     }
+  }  // конец if (state.step === 'waiting_info' && text)
   } catch (error) {
     console.error('Error handling message:', error);
     try {
