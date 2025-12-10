@@ -1,5 +1,4 @@
 import express from 'express';
-import TelegramBot from 'node-telegram-bot-api';
 import { config } from 'dotenv';
 import { renderVideo } from './videoRenderer.js';
 import { convertWebmToMp4 } from './videoConverter.js';
@@ -36,7 +35,35 @@ if (!PERPLEXITY_API_KEY) {
   console.warn('Внимание: PERPLEXITY_API_KEY не найден. Используется алгоритмический фолбэк без AI.');
 }
 
-const bot = new TelegramBot(BOT_TOKEN, { 
+// Проверяем, есть ли локальный Telegram Bot API сервер
+const USE_LOCAL_API = process.env.USE_LOCAL_API === 'true';
+const LOCAL_API_URL = process.env.LOCAL_API_URL || 'http://localhost:8081';
+
+// Импортируем TelegramBot через require для возможности monkey patching
+const TelegramBotModule = require('node-telegram-bot-api');
+
+// Если используем локальный API, переопределяем baseURL через monkey patching
+if (USE_LOCAL_API) {
+  // Переопределяем метод _request для использования локального сервера
+  const originalRequest = TelegramBotModule.prototype._request;
+  
+  TelegramBotModule.prototype._request = function(options: any, callback: any) {
+    // Заменяем стандартный URL на локальный
+    if (options.url && typeof options.url === 'string' && options.url.includes('api.telegram.org')) {
+      options.url = options.url.replace('https://api.telegram.org', LOCAL_API_URL);
+      console.log(`Local API request: ${options.url}`);
+    }
+    return originalRequest.call(this, options, callback);
+  };
+  
+  console.log(`Using local Telegram Bot API at ${LOCAL_API_URL} (files up to 2GB)`);
+} else {
+  console.log('Using standard Telegram Bot API (20MB limit)');
+}
+
+const TelegramBot = TelegramBotModule;
+
+const botOptions: any = { 
   polling: {
     interval: 300,
     autoStart: true,
@@ -44,7 +71,9 @@ const bot = new TelegramBot(BOT_TOKEN, {
       timeout: 10
     }
   }
-});
+};
+
+const bot = new TelegramBot(BOT_TOKEN, botOptions);
 
 bot.on('polling_error', (error) => {
   console.error('Polling error:', error);
