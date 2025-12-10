@@ -49,9 +49,10 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
   <style>
     @font-face {
       font-family: 'Benzin-Bold';
-      src: url('http://localhost:${serverPort}/assets/fonts/Benzin-Bold.ttf') format('truetype');
+      src: url('http://localhost:${serverPort}/assets/fonts/benzin-bold.ttf') format('truetype');
       font-weight: bold;
       font-style: normal;
+      font-display: block;
     }
     body { margin: 0; padding: 0; background: black; overflow: hidden; width: 1080px; height: 1920px; }
     canvas { display: block; width: 1080px; height: 1920px; }
@@ -320,6 +321,10 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         try {
             console.log('Waiting for fonts...');
             try {
+                // Проверяем доступность шрифта
+                const fontUrl = 'http://localhost:${serverPort}/assets/fonts/benzin-bold.ttf';
+                console.log('Loading font from:', fontUrl);
+                
                 // Загружаем несколько размеров, чтобы шрифт гарантированно применился на всех слайдах (в т.ч. крупный заголовок)
                 await Promise.all([
                     document.fonts.load('900 48px "Benzin-Bold"'),
@@ -327,8 +332,17 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                     document.fonts.load('900 90px "Benzin-Bold"')
                 ]);
                 await document.fonts.ready;
-                console.log('Fonts loaded!');
-            } catch (e) { console.warn('Font loading warning:', e); }
+                
+                // Проверяем, что шрифт действительно загружен
+                const fontCheck = document.fonts.check('900 48px "Benzin-Bold"');
+                console.log('Font loaded:', fontCheck ? 'YES' : 'NO');
+                if (!fontCheck) {
+                    console.warn('WARNING: Benzin-Bold font not available, will use fallback');
+                }
+            } catch (e) { 
+                console.error('Font loading error:', e);
+                console.warn('Will continue with fallback font');
+            }
             
             console.log('Loading videos...');
             const videos = await Promise.all(videoUrls.map(url => loadVideo(url)));
