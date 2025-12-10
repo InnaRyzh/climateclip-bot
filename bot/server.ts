@@ -140,13 +140,30 @@ bot.onText(/\/start/, async (msg) => {
 });
 
 bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text;
-  
-  if (text === '/start') return;
-  
-  const state = userStates.get(chatId);
-  if (!state) return;
+  try {
+    const chatId = msg.chat.id;
+    const text = msg.text;
+    
+    if (text === '/start') return;
+    
+    const state = userStates.get(chatId);
+    if (!state) {
+      // Если нет состояния, но пользователь отправил сообщение, показываем меню
+      if (text || msg.video || msg.document) {
+        await bot.sendMessage(chatId, 'Пожалуйста, начните с команды /start или выберите шаблон:', {
+          reply_markup: {
+            keyboard: [
+              [{ text: '1. Сетка 4 видео (Grid)' }],
+              [{ text: '2. Новости (News)' }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: true
+          }
+        });
+        userStates.set(chatId, { step: 'waiting_template' });
+      }
+      return;
+    }
 
   if (state.step === 'waiting_template') {
     if (text === '1. Сетка 4 видео (Grid)') {
@@ -256,6 +273,13 @@ bot.on('message', async (msg) => {
        } else {
          await bot.sendMessage(chatId, '❌ Отправьте: Страна (строка 1), Дата (строка 2), Текст (далее)');
        }
+    }
+  } catch (error) {
+    console.error('Error handling message:', error);
+    try {
+      await bot.sendMessage(msg.chat.id, '❌ Произошла ошибка при обработке сообщения. Попробуйте еще раз или начните с /start');
+    } catch (sendError) {
+      console.error('Error sending error message:', sendError);
     }
   }
 });
