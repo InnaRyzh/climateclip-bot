@@ -222,7 +222,17 @@ bot.on('message', async (msg) => {
 
   if (state.step === 'waiting_info' && text) {
     if (state.template === 'grid') {
-      // ... (Grid logic unchanged) ...
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length >= 2) {
+        const countriesLine = lines[0].trim();
+        const dateLine = lines[1].trim();
+        state.countries = countriesLine.split(',').map(c => c.trim()).filter(c => c);
+        state.date = dateLine;
+        state.step = 'ready';
+        await processGridTemplate(chatId, state);
+      } else {
+        await bot.sendMessage(chatId, '❌ Отправьте:\n1. Страна1, Страна2, Страна3, Страна4\n2. Дата');
+      }
     } else if (state.template === 'news') {
        const lines = text.split('\n').filter(l => l.trim());
        
