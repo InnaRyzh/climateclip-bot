@@ -67,11 +67,18 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     
     // --- TIMING CONFIG ---
     const GRID_CONTENT_DURATION = 20; 
-    const NEWS_HEADER_DURATION = 3; // секунды показа шапки
-    const NEWS_TICKER_DURATION = 6; // секунды на каждый блок текста
-    const NEWS_CONTENT_DURATION = NEWS_HEADER_DURATION + NEWS_TICKER_DURATION * 3; 
-    const NEWS_CLIP_DURATION = 6; 
-    const CTA_DURATION = 5; 
+    const NEWS_HEADER_DURATION = 4; // секунды показа шапки (дата+страна)
+    const NEWS_TICKER_COUNT = 3; // количество текстовых блоков от Perplexity
+    const NEWS_CLIP_DURATION = 6; // длительность каждого ролика
+    const NEWS_CLIP_COUNT = 5; // количество роликов
+    const CTA_DURATION = 5; // призыв к действию
+    // Вычисляем длительность каждого текстового блока:
+    // Всего видео: 5 роликов * 6 сек = 30 сек + CTA 5 сек = 35 сек
+    // Контент до CTA: 35 - 5 = 30 сек
+    // После шапки (4 сек): 30 - 4 = 26 сек
+    // На 3 блока: 26 / 3 = 8.67 сек каждый
+    const NEWS_TICKER_DURATION = (NEWS_CLIP_COUNT * NEWS_CLIP_DURATION + CTA_DURATION - NEWS_HEADER_DURATION - CTA_DURATION) / NEWS_TICKER_COUNT;
+    const NEWS_CONTENT_DURATION = NEWS_HEADER_DURATION + NEWS_TICKER_DURATION * NEWS_TICKER_COUNT; // 4 + 26 = 30 сек 
     
     const options = ${serializedOptions};
     const videoUrls = ${serializedVideoUrls};
@@ -499,9 +506,10 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                             }
                         } else {
                             // --- NEWS RENDER ---
-                            const videoIndex = Math.floor(elapsed / NEWS_CLIP_DURATION);
+                            // Видео переключаются каждые 6 секунд, всего 5 роликов
+                            const videoIndex = Math.min(Math.floor(elapsed / NEWS_CLIP_DURATION), NEWS_CLIP_COUNT - 1);
                             
-                            if (videoIndex !== currentNewsVideoIndex && videoIndex < newsVideosWithData.length) {
+                            if (videoIndex !== currentNewsVideoIndex && videoIndex < newsVideosWithData.length && videoIndex < NEWS_CLIP_COUNT) {
                                 if (currentNewsVideoIndex >= 0) newsVideosWithData[currentNewsVideoIndex].element.pause();
                                 const nextVid = newsVideosWithData[videoIndex];
                                 if (nextVid) {
@@ -613,7 +621,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                                 const tickerDuration = NEWS_TICKER_DURATION;
                                 const tickerIndex = Math.floor(tickerTime / tickerDuration);
                                     
-                                    if (tickerIndex >= 0 && tickerIndex < 3) {
+                                    if (tickerIndex >= 0 && tickerIndex < NEWS_TICKER_COUNT) {
                                         // Делаем первую букву заглавной
                                         let rawTicker = options.tickers[tickerIndex];
                                         const currentTicker = rawTicker ? rawTicker.charAt(0).toUpperCase() + rawTicker.slice(1) : '';

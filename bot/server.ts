@@ -225,24 +225,22 @@ bot.on('message', async (msg) => {
          try {
              let tickers = await rewriteNewsText(rawDescription);
              
-             // Страховка: если AI вернул < 3 блоков или это не массив
-             if (!Array.isArray(tickers) || tickers.length < 3) {
-                 const words = rawDescription.split(/\s+/);
-                 const total = words.length;
-                 
-                 // Сбалансированное разбиение: 10 слов -> 4, 3, 3 (а не 4, 4, 2)
-                 const baseSize = Math.floor(total / 3);
-                 const remainder = total % 3;
-                 
-                 const size1 = baseSize + (remainder > 0 ? 1 : 0);
-                 const size2 = baseSize + (remainder > 1 ? 1 : 0);
-                 // size3 = baseSize
-                 
-                 tickers = [
-                    words.slice(0, size1).join(' '),
-                    words.slice(size1, size1 + size2).join(' '),
-                    words.slice(size1 + size2).join(' ')
-                 ];
+            // Страховка: если AI вернул < 3 блоков или это не массив
+            if (!Array.isArray(tickers) || tickers.length < 3) {
+                const words = rawDescription.split(/\s+/);
+                const total = words.length;
+                
+                // Сбалансированное разбиение на 3 блока
+                const baseSize = Math.floor(total / 3);
+                const remainder = total % 3;
+                
+                tickers = [];
+                let startIdx = 0;
+                for (let i = 0; i < 3; i++) {
+                    const size = baseSize + (i < remainder ? 1 : 0);
+                    tickers.push(words.slice(startIdx, startIdx + size).join(' '));
+                    startIdx += size;
+                }
              }
              
              // Обрезаем или дополняем до 3
