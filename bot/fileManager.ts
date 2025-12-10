@@ -333,10 +333,21 @@ export async function downloadFile(
     throw new Error('Bot token not available');
   }
   
+  // Проверяем, используем ли локальный API
+  const useLocalApi = process.env.USE_LOCAL_API === 'true';
+  const localApiUrl = process.env.LOCAL_API_URL || 'http://localhost:8081';
+  
+  if (useLocalApi) {
+    console.log(`Using local API for getFile: ${localApiUrl}`);
+  } else {
+    console.log('Using standard Telegram Bot API for getFile (20MB limit)');
+  }
+  
   // Retry для получения информации о файле
   while (retryCount < MAX_RETRIES) {
     try {
       file = await bot.getFile(fileId);
+      console.log('File info:', JSON.stringify(file)); // Логируем информацию о файле
       break;
     } catch (error: any) {
       retryCount++;
@@ -378,12 +389,23 @@ export async function downloadFile(
     throw new Error('File path not available from Telegram API');
   }
   
-  // Формируем URL для скачивания
-  const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+  // Используем getFileLink() для получения правильного URL (учитывает локальный сервер)
+  let fileUrl: string;
+  try {
+    fileUrl = await bot.getFileLink(fileId);
+  } catch (e) {
+    // Fallback если getFileLink не сработал (например, для старых версий либы)
+    const useLocalApi = process.env.USE_LOCAL_API === 'true';
+    const baseUrl = useLocalApi 
+      ? (process.env.LOCAL_API_URL || 'http://localhost:8081') 
+      : 'https://api.telegram.org';
+    fileUrl = `${baseUrl}/file/bot${token}/${file.file_path}`;
+  }
+
   const fileName = path.basename(file.file_path) || `file_${Date.now()}.mp4`;
   const localPath = path.join(TEMP_DIR, `${Date.now()}_${fileName}`);
   
-  console.log(`Downloading: ${fileName}`);
+  console.log(`Downloading: ${fileName} from ${fileUrl}`);
   
   try {
     await downloadFileWithRetry(fileUrl, localPath);
