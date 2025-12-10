@@ -38,22 +38,48 @@ async function fetchWithTimeout(url: string, opts: any, timeout = FETCH_TIMEOUT_
 function tryParseArray(raw: string): string[] | null {
   if (!raw) return null;
   let cleaned = raw.trim();
-  // Убираем обёртки ```json ... ```
+  
+  // Убираем обёртки ```json ... ``` или ``` ... ```
   const codeFenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (codeFenceMatch) {
     cleaned = codeFenceMatch[1].trim();
   }
+  
+  // Убираем возможные префиксы типа "Вот результат:" или "Ответ:"
+  cleaned = cleaned.replace(/^(?:Вот|Ответ|Результат|JSON)[:\s]*/i, '');
+  
   try {
     const parsed = JSON.parse(cleaned);
-    if (Array.isArray(parsed) && parsed.length >= 3) return parsed.slice(0, 3);
+    if (Array.isArray(parsed)) {
+      // Фильтруем пустые строки и берем первые 3 непустых элемента
+      const filtered = parsed.filter(s => s && typeof s === 'string' && s.trim().length > 0);
+      if (filtered.length >= 3) return filtered.slice(0, 3);
+      if (filtered.length > 0) return filtered; // Если меньше 3, но есть хотя бы один
+    }
   } catch {
+    // fallback: попробовать найти массив в тексте
+    const arrayMatch = cleaned.match(/\[[\s\S]*?\]/);
+    if (arrayMatch) {
+      try {
+        const parsed = JSON.parse(arrayMatch[0]);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(s => s && typeof s === 'string' && s.trim().length > 0);
+          if (filtered.length >= 3) return filtered.slice(0, 3);
+        }
+      } catch {}
+    }
+    
     // fallback: попробовать разбить по переводам строк или точкам
     const parts = cleaned
       .split(/\n+/)
       .map(s => s.trim())
-      .filter(Boolean);
+      .filter(s => s.length > 10); // Минимум 10 символов для валидного абзаца
     if (parts.length >= 3) return parts.slice(0, 3);
-    const dotParts = cleaned.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+    
+    const dotParts = cleaned
+      .split(/[.!?]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 10);
     if (dotParts.length >= 3) return dotParts.slice(0, 3);
   }
   return null;
@@ -84,12 +110,21 @@ async function tryPerplexity(text: string): Promise<string[] | null> {
               {
                 role: 'system',
           content: [
-            'Ты редактор новостной ленты. Перепиши исходный текст по-русски в 3 полных абзаца-хронологию по 20–25 слов (допустимо 18–26).',
-            'Сохраняй факты, числа, даты, локации и порядок событий. Не добавляй ничего нового. Не сокращай ключевые детали.',
-            'Пиши нейтрально и ясно, без метафор, без оценок, без клише. Используй цельные предложения без обрывов, без переносов и незаконченных фраз.',
-            'По возможности конкретизируй субъект вместо местоимений. Избегай перечислений без связки, делай связный текст.',
-            'Верни ТОЛЬКО JSON-массив из трёх строк вида ["...", "...", "..."] без пояснений и без форматирования Markdown.'
-          ].join(' ')
+            'Ты профессиональный редактор новостной ленты. Перепиши исходный текст по-русски в РОВНО 3 полных абзаца-хронологию.',
+            'ТРЕБОВАНИЯ К КАЖДОМУ АБЗАЦУ:',
+            '- Длина: 20–25 слов (строго, допустимо 18–26 только если текст очень короткий)',
+            '- Полные предложения, законченные мысли',
+            '- Хронологический порядок событий',
+            '- Сохранение всех фактов, чисел, дат, локаций',
+            '- Нейтральный стиль, без метафор, оценок, клише',
+            '- Конкретные субъекты вместо местоимений',
+            '- Связный текст, избегай перечислений без связки',
+            '',
+            'НЕ добавляй ничего нового, НЕ сокращай ключевые детали, НЕ используй обрывки фраз.',
+            '',
+            'Верни ТОЛЬКО валидный JSON-массив из РОВНО трёх строк: ["первый абзац", "второй абзац", "третий абзац"]',
+            'БЕЗ пояснений, БЕЗ форматирования Markdown, БЕЗ обратных кавычек.'
+          ].join('\n')
               },
               { role: 'user', content: text }
             ]

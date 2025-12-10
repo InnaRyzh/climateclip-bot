@@ -412,9 +412,10 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const startTime = performance.now();
             let frameCount = 0;
 
+            // НЕ запускаем все видео сразу - запускаем только при переключении
             videos.forEach(v => {
-                v.loop = true;
-                v.play().catch(console.warn);
+                v.loop = false; // Отключаем loop, чтобы видео не повторялись
+                v.volume = 0; // Отключаем звук по умолчанию
             });
             
             const newsVideosWithData = options.template === 'news' ? videos.map((v, i) => ({
@@ -509,15 +510,47 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                             // Видео переключаются каждые 6 секунд, всего 5 роликов
                             const videoIndex = Math.min(Math.floor(elapsed / NEWS_CLIP_DURATION), NEWS_CLIP_COUNT - 1);
                             
+                            // Запускаем первое видео сразу при старте
+                            if (currentNewsVideoIndex === -1 && videoIndex === 0 && newsVideosWithData.length > 0) {
+                                const firstVid = newsVideosWithData[0];
+                                if (firstVid && firstVid.element) {
+                                    firstVid.element.currentTime = 0;
+                                    firstVid.element.volume = 1;
+                                    firstVid.element.play().catch(console.warn);
+                                    currentNewsVideoIndex = 0;
+                                }
+                            }
+                            
                             if (videoIndex !== currentNewsVideoIndex && videoIndex < newsVideosWithData.length && videoIndex < NEWS_CLIP_COUNT) {
-                                if (currentNewsVideoIndex >= 0) newsVideosWithData[currentNewsVideoIndex].element.pause();
+                                // ОСТАНАВЛИВАЕМ ВСЕ ВИДЕО перед переключением, чтобы звук не накладывался
+                                newsVideosWithData.forEach(v => {
+                                    if (v && v.element) {
+                                        v.element.pause();
+                                        v.element.currentTime = 0;
+                                        v.element.volume = 0; // Отключаем звук перед остановкой
+                                    }
+                                });
+                                
                                 const nextVid = newsVideosWithData[videoIndex];
-                                if (nextVid) {
+                                if (nextVid && nextVid.element) {
                                     nextVid.element.currentTime = 0;
+                                    nextVid.element.volume = 1; // Включаем звук для нового видео
                                     nextVid.element.play().catch(console.warn);
                                 }
                                 currentNewsVideoIndex = videoIndex;
                             }
+                            
+                            // Убеждаемся, что только текущее видео играет со звуком
+                            newsVideosWithData.forEach((v, idx) => {
+                                if (v && v.element) {
+                                    if (idx === currentNewsVideoIndex) {
+                                        v.element.volume = 1;
+                                    } else {
+                                        v.element.volume = 0;
+                                        if (!v.element.paused) v.element.pause();
+                                    }
+                                }
+                            });
                             
                             const activeData = newsVideosWithData[currentNewsVideoIndex];
                             if (activeData) drawVideoCover(ctx, activeData.element, 0, 0, WIDTH, HEIGHT);
@@ -681,9 +714,20 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                             }
                         }
                     } else {
-                        if (options.template === 'news' && currentNewsVideoIndex >= 0) {
-                             // ПРИНУДИТЕЛЬНО ОСТАНАВЛИВАЕМ ВСЕ ВИДЕО, ЧТОБЫ ОБОРВАТЬ ЗВУК
-                             videos.forEach(v => v.pause());
+                        if (options.template === 'news') {
+                             // ПРИНУДИТЕЛЬНО ОСТАНАВЛИВАЕМ ВСЕ ВИДЕО И ОТКЛЮЧАЕМ ЗВУК
+                             newsVideosWithData.forEach(v => {
+                                 if (v && v.element) {
+                                     v.element.pause();
+                                     v.element.currentTime = 0;
+                                     v.element.volume = 0;
+                                 }
+                             });
+                             videos.forEach(v => {
+                                 v.pause();
+                                 v.currentTime = 0;
+                                 v.volume = 0;
+                             });
                         }
                         drawImageCTA(ctx, frameCount, ctaImage);
                     }
