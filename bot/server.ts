@@ -299,7 +299,7 @@ async function processGridTemplate(chatId: number, state: UserState) {
     
     await bot.sendMessage(chatId, '🔄 Конвертирую...');
     
-    // Создаем имя файла на основе даты и стран (для grid template)
+    // Создаем имя файла на основе даты и "Весь мир" (для grid template)
     const sanitizeFileName = (str: string): string => {
       return str
         .replace(/[^\w\s-]/g, '') // Убираем спецсимволы
@@ -309,10 +309,7 @@ async function processGridTemplate(chatId: number, state: UserState) {
     };
     
     const dateStr = state.date ? sanitizeFileName(state.date) : 'date';
-    const countriesStr = state.countries && state.countries.length > 0 
-      ? state.countries.map(c => sanitizeFileName(c)).join('_')
-      : 'countries';
-    const fileName = `${dateStr}_${countriesStr}.mp4`;
+    const fileName = `${dateStr}_Весь_мир.mp4`;
     
     const mp4Path = await convertWebmToMp4(webmPath, fileName);
     
