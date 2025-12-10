@@ -393,7 +393,6 @@ export async function downloadFile(
   const localPath = path.join(TEMP_DIR, `${Date.now()}_${fileName}`);
   
   // Если используем локальный API и файл доступен локально - просто копируем его
-  const useLocalApi = process.env.USE_LOCAL_API === 'true';
   if (useLocalApi && file.file_path && (file.file_path.startsWith('/') || file.file_path.startsWith('\\'))) {
     try {
       console.log(`Local API mode: checking if file exists at ${file.file_path}`);
