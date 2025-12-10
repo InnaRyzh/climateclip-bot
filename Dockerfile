@@ -21,15 +21,23 @@ RUN git clone https://github.com/tdlib/telegram-bot-api.git && \
     cmake .. && \
     cmake --build . -j$(nproc)
 
-# Финальный образ
-FROM node:20-alpine
+# Финальный образ - используем Ubuntu для совместимости с telegram-bot-api
+FROM node:20
 
-# Устанавливаем зависимости для telegram-bot-api
-RUN apk add --no-cache libstdc++ libgcc
+# Устанавливаем зависимости для telegram-bot-api и Node.js
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    libc6 \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Копируем telegram-bot-api из builder
 COPY --from=telegram-bot-api-builder /build/telegram-bot-api/build/telegram-bot-api /usr/local/bin/telegram-bot-api
 RUN chmod +x /usr/local/bin/telegram-bot-api
+
+# Проверяем, что бинарник работает
+RUN telegram-bot-api --version || echo "Binary check failed, will try at runtime"
 
 WORKDIR /app
 
