@@ -3,7 +3,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { config } from 'dotenv';
 import { renderVideo } from './videoRenderer.js';
 import { convertWebmToMp4 } from './videoConverter.js';
-import { downloadFile, cleanupFiles } from './fileManager.js';
+import { downloadFile, cleanupFiles, trimVideoToDuration } from './fileManager.js';
 import { rewriteNewsText } from './aiService.js';
 import path from 'path';
 import fs from 'fs';
@@ -22,8 +22,6 @@ const app = express();
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PORT = process.env.PORT || 3000;
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-const MAX_TG_FILE_SIZE_MB = 20;
-const MAX_TG_FILE_SIZE = MAX_TG_FILE_SIZE_MB * 1024 * 1024;
 
 console.log('PORT:', PORT);
 console.log('BOT_TOKEN:', BOT_TOKEN ? 'SET' : 'MISSING');
@@ -141,10 +139,9 @@ bot.on('message', async (msg) => {
       const fileId = msg.video?.file_id || msg.document?.file_id;
       const fileSize = msg.video?.file_size || msg.document?.file_size || 0;
 
-      if (fileSize > MAX_TG_FILE_SIZE) {
-        await bot.sendMessage(chatId, `❌ Файл слишком большой (${(fileSize / 1024 / 1024).toFixed(1)} МБ). Telegram Bot API позволяет скачивать до ${MAX_TG_FILE_SIZE_MB} МБ. Сожмите видео или отправьте файл меньше ${MAX_TG_FILE_SIZE_MB} МБ.`);
-        return;
-      }
+      // Убираем проверку размера - пусть Telegram сам решает при скачивании
+      // Если файл >20 МБ для видео, Telegram вернет ошибку, которую мы обработаем
+      // Для документов лимит выше (50 МБ), так что документы можно скачивать
 
       if (fileId) {
         state.videos!.push({ fileId });
@@ -357,7 +354,7 @@ app.post('/upload-result/:id', (req, res) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`✅ Bot server running on port ${PORT}`);
   console.log(`✅ Health check available at http://0.0.0.0:${PORT}/health`);
   console.log(`✅ Bot is ready to receive messages`);

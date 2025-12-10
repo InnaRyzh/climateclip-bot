@@ -328,9 +328,12 @@ export async function downloadFile(
       break;
     } catch (error: any) {
       retryCount++;
-      // Обработка ошибки размера файла до ретраев, т.к. ретраить бесполезно
-      if (error?.message?.includes('file is too big')) {
-        throw new Error('Файл слишком большой (>20MB). Telegram Bot API не позволяет скачивать такие файлы. Пожалуйста, сожмите видео или отправьте файл до 20 МБ.');
+      // Обработка ошибки размера файла - Telegram Bot API не позволяет скачивать видео >20 МБ
+      if (error?.message?.includes('file is too big') || error?.message?.includes('too large')) {
+        const fileSizeMB = error?.response?.body?.file_size 
+          ? (error.response.body.file_size / 1024 / 1024).toFixed(1)
+          : '>20';
+        throw new Error(`Файл слишком большой (${fileSizeMB} МБ). Telegram Bot API позволяет скачивать видео до 20 МБ.\n\n💡 Решение: отправьте файл как документ (File/Document) вместо видео - для документов лимит 50 МБ, и бот автоматически обрежет и сожмет его до 6 секунд с максимальным качеством.`);
       }
       if (retryCount >= MAX_RETRIES) {
         throw new Error(`Failed to get file info after ${MAX_RETRIES} attempts: ${error.message || String(error)}`);
