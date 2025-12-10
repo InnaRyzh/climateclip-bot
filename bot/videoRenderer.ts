@@ -404,16 +404,19 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             window.videosLoaded = true;
             console.log('Videos loaded!');
             
-            // НАСТРОЙКА ЗВУКА
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            const audioCtx = new AudioContext();
-            const dest = audioCtx.createMediaStreamDestination();
-            
-            // Подключаем все видео к общему выходу
-            videos.forEach(v => {
-                const source = audioCtx.createMediaElementSource(v);
-                source.connect(dest);
-            });
+            // НАСТРОЙКА ЗВУКА (только для news, в grid выключаем звук ради плавности)
+            let dest = null;
+            if (options.template === 'news') {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const audioCtx = new AudioContext();
+                dest = audioCtx.createMediaStreamDestination();
+                
+                // Подключаем все видео к общему выходу
+                videos.forEach(v => {
+                    const source = audioCtx.createMediaElementSource(v);
+                    source.connect(dest);
+                });
+            }
             
             let ctaImage = null;
             if (options.ctaImageUrl) {
@@ -426,14 +429,17 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const ctx = canvas.getContext('2d');
             const mimeType = getMimeType();
             
-            const bitRate = options.template === 'news' ? 8000000 : 5000000;
+            // Чуть снижаем битрейт для grid, чтобы уменьшить дергания
+            const bitRate = options.template === 'news' ? 8000000 : 4000000;
             
             const stream = canvas.captureStream(FPS);
             
-            // ДОБАВЛЯЕМ АУДИО ТРЕК В ПОТОК ЗАПИСИ
-            const audioTrack = dest.stream.getAudioTracks()[0];
-            if (audioTrack) {
-                stream.addTrack(audioTrack);
+            // ДОБАВЛЯЕМ АУДИО ТРЕК В ПОТОК ЗАПИСИ (только для news)
+            if (dest) {
+                const audioTrack = dest.stream.getAudioTracks()[0];
+                if (audioTrack) {
+                    stream.addTrack(audioTrack);
+                }
             }
             
             const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitRate });
@@ -466,6 +472,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                     v.loop = true;
                     v.muted = true;
                     v.volume = 0;
+                    v.currentTime = 0;
+                    v.playbackRate = 1;
                     v.play().catch(console.warn);
                 });
             } else {
