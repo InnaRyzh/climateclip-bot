@@ -104,7 +104,7 @@ app.use('/assets', express.static(assetsDir, {
 interface UserState {
   step: 'start' | 'waiting_template' | 'waiting_videos' | 'waiting_info' | 'ready';
   template?: 'grid' | 'news';
-  videos?: { fileId: string }[];
+  videos?: { fileId: string; isDocument?: boolean }[];
   countries?: string[];
   date?: string;
   country?: string;
@@ -163,13 +163,10 @@ bot.on('message', async (msg) => {
     if (msg.video || msg.document) {
       const fileId = msg.video?.file_id || msg.document?.file_id;
       const fileSize = msg.video?.file_size || msg.document?.file_size || 0;
-
-      // Убираем проверку размера - пусть Telegram сам решает при скачивании
-      // Если файл >20 МБ для видео, Telegram вернет ошибку, которую мы обработаем
-      // Для документов лимит выше (50 МБ), так что документы можно скачивать
+      const isDocument = !!msg.document; // true если файл отправлен как документ
 
       if (fileId) {
-        state.videos!.push({ fileId });
+        state.videos!.push({ fileId, isDocument });
         
         const requiredCount = state.template === 'grid' ? 4 : 5;
         const currentCount = state.videos!.length;
@@ -274,7 +271,9 @@ async function processGridTemplate(chatId: number, state: UserState) {
     await bot.sendMessage(chatId, '⏳ Начинаю обработку Grid...');
     
     for (const v of state.videos!) {
-        const path = await downloadFile(bot, v.fileId, BOT_TOKEN!);
+        // Проверяем, был ли файл отправлен как документ (хранится в fileId, но нужно проверить тип)
+        // Для простоты считаем, что если getFile() не работает, то это видео >20 МБ
+        const path = await downloadFile(bot, v.fileId, BOT_TOKEN!, v.isDocument);
         videoPaths.push(path);
     }
     
@@ -317,7 +316,9 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     await bot.sendMessage(chatId, '⏳ Начинаю обработку News...');
     
     for (const v of state.videos!) {
-        const path = await downloadFile(bot, v.fileId, BOT_TOKEN!);
+        // Проверяем, был ли файл отправлен как документ (хранится в fileId, но нужно проверить тип)
+        // Для простоты считаем, что если getFile() не работает, то это видео >20 МБ
+        const path = await downloadFile(bot, v.fileId, BOT_TOKEN!, v.isDocument);
         videoPaths.push(path);
     }
     

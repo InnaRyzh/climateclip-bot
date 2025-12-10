@@ -319,7 +319,8 @@ async function downloadFileWithRetry(
 export async function downloadFile(
   bot: TelegramBot,
   fileId: string,
-  botToken?: string
+  botToken?: string,
+  isDocument?: boolean  // true если файл отправлен как документ
 ): Promise<string> {
   await ensureTempDir();
   
@@ -339,41 +340,31 @@ export async function downloadFile(
       break;
     } catch (error: any) {
       retryCount++;
-      // Обработка ошибки размера файла - Telegram Bot API не позволяет скачивать видео >20 МБ
+      // Обработка ошибки размера файла
       if (error?.message?.includes('file is too big') || error?.message?.includes('too large')) {
         const fileSizeMB = error?.response?.body?.file_size 
           ? (error.response.body.file_size / 1024 / 1024).toFixed(1)
           : '>20';
         
-        console.log(`File too large for getFile() (${fileSizeMB} МБ), trying getFileLink()...`);
-        
-        // Получаем токен для построения URL
-        const token = botToken || (bot as any).token || process.env.BOT_TOKEN;
-        if (!token) {
-          throw new Error('Bot token not available');
-        }
-        
-        try {
-          // Используем getFileLink() для получения прямого URL - работает для файлов до 50 МБ
-          const directUrl = await bot.getFileLink(fileId);
-          console.log(`Got direct download URL via getFileLink() for file ${fileSizeMB} МБ`);
-          
-          const fileName = `file_${Date.now()}_${fileId}.mp4`;
-          const localPath = path.join(TEMP_DIR, fileName);
-          
-          await downloadFileWithRetry(directUrl, localPath);
-          console.log(`Successfully downloaded large file (${fileSizeMB} МБ) via getFileLink()`);
-          return localPath;
-        } catch (linkError: any) {
-          console.error('getFileLink() failed:', linkError);
-          
-          // Если файл больше 50 МБ, предлагаем отправить как документ
-          if (parseFloat(fileSizeMB) > 50) {
-            throw new Error(`Файл слишком большой (${fileSizeMB} МБ). Максимальный размер для скачивания: 50 МБ.\n\n💡 Решение: отправьте файл как документ (File/Document) вместо видео - для документов лимит 50 МБ, и бот автоматически обрежет и сожмет его до 6 секунд с максимальным качеством.`);
+        // Если файл отправлен как документ, getFileLink() должен работать до 50 МБ
+        if (isDocument) {
+          console.log(`Document file too large for getFile() (${fileSizeMB} МБ), trying getFileLink()...`);
+          try {
+            const directUrl = await bot.getFileLink(fileId);
+            console.log(`Got direct download URL via getFileLink() for document ${fileSizeMB} МБ`);
+            const fileName = `file_${Date.now()}_${fileId}.mp4`;
+            const localPath = path.join(TEMP_DIR, fileName);
+            await downloadFileWithRetry(directUrl, localPath);
+            console.log(`Successfully downloaded document (${fileSizeMB} МБ) via getFileLink()`);
+            return localPath;
+          } catch (linkError: any) {
+            console.error('getFileLink() failed for document:', linkError.message);
+            throw new Error(`Не удалось скачать документ (${fileSizeMB} МБ). Попробуйте отправить файл меньшего размера.`);
           }
-          
-          throw new Error(`Не удалось скачать файл (${fileSizeMB} МБ). Попробуйте отправить файл как документ (File/Document) вместо видео.`);
         }
+        
+        // Для видео >20 МБ нужно отправлять как документ
+        throw new Error(`Файл слишком большой (${fileSizeMB} МБ). Telegram Bot API позволяет скачивать видео до 20 МБ.\n\n💡 Решение: отправьте файл как документ (File/Document) вместо видео - для документов лимит 50 МБ, и бот автоматически обрежет и сожмет его до 6 секунд с максимальным качеством.`);
       }
       if (retryCount >= MAX_RETRIES) {
         throw new Error(`Failed to get file info after ${MAX_RETRIES} attempts: ${error.message || String(error)}`);
