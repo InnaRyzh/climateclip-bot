@@ -199,12 +199,11 @@ bot.on('message', async (msg) => {
         } else {
           state.step = 'waiting_info';
           if (state.template === 'grid') {
-            await bot.sendMessage(chatId, 
-              'Все видео получены! 📝\n\n' +
-              'Теперь отправьте информацию в формате:\n' +
-              'Страна1, Страна2, Страна3, Страна4\n' +
-              'Дата (или описание по центру)'
-            );
+          await bot.sendMessage(chatId, 
+            'Все видео получены! 📝\n\n' +
+            'Отправь одной строкой: страны через запятую / дата.\n' +
+            'Пример: Индонезия, Бразилия, Япония, Саудовская Аравия / 7-8 декабря 2025'
+          );
           } else {
              await bot.sendMessage(chatId,
               'Все видео получены! 📝\n\n' +
@@ -223,15 +222,28 @@ bot.on('message', async (msg) => {
   if (state.step === 'waiting_info' && text) {
     if (state.template === 'grid') {
       const lines = text.split('\n').filter(l => l.trim());
+      let countriesLine = '';
+      let dateLine = '';
+
       if (lines.length >= 2) {
-        const countriesLine = lines[0].trim();
-        const dateLine = lines[1].trim();
+        countriesLine = lines[0].trim();
+        dateLine = lines[1].trim();
+      } else {
+        // Пытаемся разобрать формат "страны / дата" или "страны | дата"
+        const splitted = text.split(/[\/|]/).map(s => s.trim()).filter(Boolean);
+        if (splitted.length >= 2) {
+          countriesLine = splitted[0];
+          dateLine = splitted.slice(1).join(' / ');
+        }
+      }
+
+      if (countriesLine && dateLine) {
         state.countries = countriesLine.split(',').map(c => c.trim()).filter(c => c);
         state.date = dateLine;
         state.step = 'ready';
         await processGridTemplate(chatId, state);
       } else {
-        await bot.sendMessage(chatId, '❌ Отправьте:\n1. Страна1, Страна2, Страна3, Страна4\n2. Дата');
+        await bot.sendMessage(chatId, '❌ Отправь одной строкой: страны через запятую / дата.\nПример: Индонезия, Бразилия, Япония, Саудовская Аравия / 7-8 декабря 2025');
       }
     } else if (state.template === 'news') {
        const lines = text.split('\n').filter(l => l.trim());

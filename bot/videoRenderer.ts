@@ -460,11 +460,20 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const startTime = performance.now();
             let frameCount = 0;
 
-            // НЕ запускаем все видео сразу - запускаем только при переключении
-            videos.forEach(v => {
-                v.loop = false; // Отключаем loop, чтобы видео не повторялись
-                v.volume = 0; // Отключаем звук по умолчанию
-            });
+            // Настройка воспроизведения: для grid запускаем все сразу, для news — переключаем по одному
+            if (options.template === 'grid') {
+                videos.forEach(v => {
+                    v.loop = true;
+                    v.muted = true;
+                    v.volume = 0;
+                    v.play().catch(console.warn);
+                });
+            } else {
+                videos.forEach(v => {
+                    v.loop = false; // Отключаем loop, чтобы видео не повторялись
+                    v.volume = 0; // Отключаем звук по умолчанию
+                });
+            }
             
             const newsVideosWithData = options.template === 'news' ? videos.map((v, i) => ({
                 element: v,
