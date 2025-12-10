@@ -57,7 +57,8 @@ export async function trimVideoToDuration(
   await ensureTempDir();
   const ext = path.extname(inputPath) || '.mp4';
   const base = path.basename(inputPath, ext);
-  const maxSizeBytes = 20 * 1024 * 1024; // 20 МБ
+  // Для локального API (2 ГБ) не жмём размер жёстко, только обеспечиваем H.264 и длительность
+  const maxSizeBytes = 2 * 1024 * 1024 * 1024; // 2 ГБ
   
   // Пробуем варианты сжатия (только H.264 для совместимости с Chromium/Telegram)
   const attempts = [
@@ -108,16 +109,10 @@ export async function trimVideoToDuration(
           .save(outputPath);
       });
 
-      // Проверяем размер файла
+      // Проверяем размер файла (только для логов, 2 ГБ лимит локального API)
       const stats = await fs.stat(outputPath);
-      if (stats.size <= maxSizeBytes) {
-        console.log(`Video compressed: ${(stats.size / 1024 / 1024).toFixed(2)}MB using ${attempt.codec} CRF ${attempt.crf}`);
-        return outputPath;
-      } else {
-        // Удаляем слишком большой файл и пробуем следующий вариант
-        await fs.unlink(outputPath).catch(() => {});
-        console.log(`Attempt ${attempt.codec} CRF ${attempt.crf} too large: ${(stats.size / 1024 / 1024).toFixed(2)}MB, trying next...`);
-      }
+      console.log(`Video compressed: ${(stats.size / 1024 / 1024).toFixed(2)}MB using ${attempt.codec} CRF ${attempt.crf}`);
+      return outputPath;
     } catch (error) {
       // Если кодек не поддерживается, пробуем следующий
       console.log(`Codec ${attempt.codec} failed, trying next...`);
