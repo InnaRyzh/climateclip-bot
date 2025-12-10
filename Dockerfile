@@ -28,6 +28,7 @@ FROM node:20
 RUN apt-get update && apt-get install -y \
     libssl3 \
     libc6 \
+    zlib1g \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
