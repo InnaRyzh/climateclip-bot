@@ -241,7 +241,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         ctx.fillStyle = '#0f0f12'; 
         ctx.fillRect(0, 0, WIDTH, HEIGHT);
         
-        const safeBottom = HEIGHT - 400; 
+        // Изображение CTA (если есть)
         const centerX = WIDTH / 2;
         
         let imageY = 300; 
