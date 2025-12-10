@@ -132,8 +132,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         const video = document.createElement('video');
         video.src = src;
         video.crossOrigin = 'anonymous';
-        video.muted = false; // ВКЛЮЧАЕМ ЗВУК
-        video.volume = 1.0;
+        video.muted = true; // по умолчанию выключаем звук для автозапуска
+        video.volume = 0;
         video.playsInline = true;
         video.preload = 'auto';
         
@@ -438,7 +438,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const mimeType = getMimeType();
             
             // Чуть снижаем битрейт для grid, чтобы уменьшить дергания
-            const bitRate = options.template === 'news' ? 8000000 : 4000000;
+            // Повышаем битрейт для лучшего качества
+            const bitRate = options.template === 'news' ? 9000000 : 6000000;
             
             const stream = canvas.captureStream(FPS);
             
@@ -551,7 +552,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                                     if (!text) return;
                                     ctx.save();
                                     ctx.fillStyle = 'white';
-                                    ctx.fillText(toTitleCase(text), x, y);
+                                    ctx.fillText(formatCountry(text), x, y);
                                     ctx.restore();
                                 };
 
