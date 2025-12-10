@@ -281,33 +281,58 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             "ДОКЛАДЕ УЧЁНЫХ АЛЛАТРА"
         ];
 
-        ctx.font = '900 36px Arial, sans-serif'; // Чуть крупнее шрифт
+        ctx.font = '900 36px Arial, sans-serif';
         ctx.textBaseline = 'middle';
-        const lineHeight = 50; // Плотная верстка
+        const lineHeight = 38; // Уменьшили интервал между строками (было 50)
         
         const textStartY = imageY + imgH + 50;
         
-        // Убрали иконку кавычек, сделаем чисто типографику
-        // const quoteSize = 60; ... drawQuoteIcon ... (удаляем)
+        // Декоративные скобки по бокам текста
+        const bracketSize = 20; // Размер скобок
+        const bracketOffset = 30; // Отступ от текста
         
         sentences.forEach((line, i) => {
             const y = textStartY + (i * lineHeight); 
             
             ctx.save();
             ctx.shadowColor = 'black';
-            ctx.shadowBlur = 0; // Четкая жесткая тень (стильно)
+            ctx.shadowBlur = 0;
             ctx.shadowOffsetX = 2;
             ctx.shadowOffsetY = 2;
 
             // Последняя строка - КРАСНАЯ (Акцент)
-            if (i === sentences.length - 1) {
-                ctx.fillStyle = '#FF0000';
-            } else {
-                ctx.fillStyle = 'white';
-            }
+            const textColor = i === sentences.length - 1 ? '#FF0000' : 'white';
+            ctx.fillStyle = textColor;
             
+            // Измеряем ширину текста для позиционирования скобок
+            const textWidth = ctx.measureText(line).width;
+            const textX = WIDTH / 2;
+            const bracketXLeft = textX - textWidth / 2 - bracketOffset;
+            const bracketXRight = textX + textWidth / 2 + bracketOffset;
+            
+            // Рисуем декоративные угловые скобки
+            ctx.strokeStyle = textColor;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Левая скобка «
+            ctx.beginPath();
+            ctx.moveTo(bracketXLeft, y - bracketSize / 2);
+            ctx.lineTo(bracketXLeft - bracketSize / 2, y);
+            ctx.lineTo(bracketXLeft, y + bracketSize / 2);
+            ctx.stroke();
+            
+            // Правая скобка »
+            ctx.beginPath();
+            ctx.moveTo(bracketXRight, y - bracketSize / 2);
+            ctx.lineTo(bracketXRight + bracketSize / 2, y);
+            ctx.lineTo(bracketXRight, y + bracketSize / 2);
+            ctx.stroke();
+            
+            // Рисуем текст
             ctx.textAlign = 'center'; 
-            ctx.fillText(line, WIDTH / 2, y);
+            ctx.fillText(line, textX, y);
             ctx.restore();
         });
         
