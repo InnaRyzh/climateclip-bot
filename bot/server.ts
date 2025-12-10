@@ -298,7 +298,23 @@ async function processGridTemplate(chatId: number, state: UserState) {
     }, Number(PORT));
     
     await bot.sendMessage(chatId, '🔄 Конвертирую...');
-    const mp4Path = await convertWebmToMp4(webmPath);
+    
+    // Создаем имя файла на основе даты и стран (для grid template)
+    const sanitizeFileName = (str: string): string => {
+      return str
+        .replace(/[^\w\s-]/g, '') // Убираем спецсимволы
+        .replace(/\s+/g, '_') // Заменяем пробелы на подчеркивания
+        .replace(/_+/g, '_') // Убираем множественные подчеркивания
+        .trim();
+    };
+    
+    const dateStr = state.date ? sanitizeFileName(state.date) : 'date';
+    const countriesStr = state.countries && state.countries.length > 0 
+      ? state.countries.map(c => sanitizeFileName(c)).join('_')
+      : 'countries';
+    const fileName = `${dateStr}_${countriesStr}.mp4`;
+    
+    const mp4Path = await convertWebmToMp4(webmPath, fileName);
     
     await bot.sendVideo(chatId, mp4Path);
     
@@ -344,7 +360,21 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     }, Number(PORT));
     
     await bot.sendMessage(chatId, '🔄 Конвертирую...');
-    const mp4Path = await convertWebmToMp4(webmPath);
+    
+    // Создаем имя файла на основе даты и страны (для news template)
+    const sanitizeFileName = (str: string): string => {
+      return str
+        .replace(/[^\w\s-]/g, '') // Убираем спецсимволы
+        .replace(/\s+/g, '_') // Заменяем пробелы на подчеркивания
+        .replace(/_+/g, '_') // Убираем множественные подчеркивания
+        .trim();
+    };
+    
+    const dateStr = state.newsDate ? sanitizeFileName(state.newsDate) : 'date';
+    const countryStr = state.country ? sanitizeFileName(state.country) : 'country';
+    const fileName = `${dateStr}_${countryStr}.mp4`;
+    
+    const mp4Path = await convertWebmToMp4(webmPath, fileName);
     
     await bot.sendVideo(chatId, mp4Path);
     
