@@ -273,67 +273,90 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             imageY = HEIGHT / 2 - 400;
         }
 
-        const sentences = [
-            "О ПРИЧИНАХ УЧАЩЕНИЯ",
-            "ПРИРОДНЫХ КАТАКЛИЗМОВ И",
-            "ПРОГНОЗАХ НА БЛИЖАЙШИЕ",
-            "ГОДЫ - В КЛИМАТИЧЕСКОМ",
-            "ДОКЛАДЕ УЧЁНЫХ АЛЛАТРА"
-        ];
-
-        ctx.font = '900 36px Arial, sans-serif';
-        ctx.textBaseline = 'middle';
-        const lineHeight = 38; // Уменьшили интервал между строками (было 50)
+        // CTA текст в том же стиле, что и текстовые блоки
+        const ctaText = "О причинах учащения природных катастроф и прогнозах на ближайшие годы - в климатическом докладе учёных АЛЛАТРА";
         
-        const textStartY = imageY + imgH + 50;
+        // Позиционирование как у текстовых блоков
+        const safeBottom = HEIGHT - 400;
+        const quoteSize = 50;
+        const safeMarginX = 160;
+        const startX = safeMarginX;
         
-        // Декоративные скобки по бокам текста
-        const bracketSize = 20; // Размер скобок
-        const bracketOffset = 30; // Отступ от текста
+        let fontSize = 32;
+        ctx.font = \`bold \${fontSize}px Arial, sans-serif\`;
+        const maxTextW = WIDTH - safeMarginX * 2 - quoteSize - 40;
+        let lines = getLines(ctx, ctaText, maxTextW);
         
-        sentences.forEach((line, i) => {
-            const y = textStartY + (i * lineHeight); 
+        // Автоматическое уменьшение шрифта если не влезает
+        while (lines.length > 10 && fontSize > 20) {
+            fontSize -= 2;
+            ctx.font = \`bold \${fontSize}px Arial, sans-serif\`;
+            lines = getLines(ctx, ctaText, maxTextW);
+        }
+        
+        const gap = 2;
+        const boxHeight = fontSize + 4;
+        const totalH = (lines.length * boxHeight) + ((lines.length - 1) * gap);
+        const startY = safeBottom - totalH;
+        
+        // Рисуем иконку кавычек слева (как у текстовых блоков)
+        drawQuoteIcon(ctx, startX, startY, quoteSize);
+        
+        const textX = startX + quoteSize + 12;
+        
+        // Разбиваем текст на части для выделения красным "ученых АЛЛАТРА"
+        const highlightPhrase = "учёных АЛЛАТРА";
+        const highlightPhraseUpper = "УЧЁНЫХ АЛЛАТРА";
+        
+        lines.forEach((line, i) => {
+            const y = startY + (i * (boxHeight + gap));
             
-            ctx.save();
-            ctx.shadowColor = 'black';
-            ctx.shadowBlur = 0;
-            ctx.shadowOffsetX = 2;
-            ctx.shadowOffsetY = 2;
-
-            // Последняя строка - КРАСНАЯ (Акцент)
-            const textColor = i === sentences.length - 1 ? '#FF0000' : 'white';
-            ctx.fillStyle = textColor;
+            // Проверяем, содержит ли строка фразу для выделения
+            const lineUpper = line.toUpperCase();
+            const hasHighlight = lineUpper.includes(highlightPhraseUpper);
             
-            // Измеряем ширину текста для позиционирования скобок
-            const textWidth = ctx.measureText(line).width;
-            const textX = WIDTH / 2;
-            const bracketXLeft = textX - textWidth / 2 - bracketOffset;
-            const bracketXRight = textX + textWidth / 2 + bracketOffset;
+            // Измеряем ширину текста для плашки
+            const textW = ctx.measureText(line).width;
             
-            // Рисуем декоративные угловые скобки
-            ctx.strokeStyle = textColor;
-            ctx.lineWidth = 4;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+            // Рисуем белую плашку
+            ctx.fillStyle = 'white';
+            ctx.fillRect(textX, y, textW + 20, boxHeight);
             
-            // Левая скобка «
-            ctx.beginPath();
-            ctx.moveTo(bracketXLeft, y - bracketSize / 2);
-            ctx.lineTo(bracketXLeft - bracketSize / 2, y);
-            ctx.lineTo(bracketXLeft, y + bracketSize / 2);
-            ctx.stroke();
+            // Рисуем текст с выделением красным
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
             
-            // Правая скобка »
-            ctx.beginPath();
-            ctx.moveTo(bracketXRight, y - bracketSize / 2);
-            ctx.lineTo(bracketXRight + bracketSize / 2, y);
-            ctx.lineTo(bracketXRight, y + bracketSize / 2);
-            ctx.stroke();
-            
-            // Рисуем текст
-            ctx.textAlign = 'center'; 
-            ctx.fillText(line, textX, y);
-            ctx.restore();
+            if (hasHighlight) {
+                // Разбиваем строку на части до и после выделяемой фразы
+                const highlightIndex = lineUpper.indexOf(highlightPhraseUpper);
+                const beforeText = line.substring(0, highlightIndex);
+                const highlightText = line.substring(highlightIndex, highlightIndex + highlightPhrase.length);
+                const afterText = line.substring(highlightIndex + highlightPhrase.length);
+                
+                let currentX = textX + 10;
+                
+                // Рисуем текст до выделения (черный)
+                if (beforeText) {
+                    ctx.fillStyle = 'black';
+                    ctx.fillText(beforeText, currentX, y + 2);
+                    currentX += ctx.measureText(beforeText).width;
+                }
+                
+                // Рисуем выделенную фразу (красный)
+                ctx.fillStyle = '#FF0000';
+                ctx.fillText(highlightText, currentX, y + 2);
+                currentX += ctx.measureText(highlightText).width;
+                
+                // Рисуем текст после выделения (черный)
+                if (afterText) {
+                    ctx.fillStyle = 'black';
+                    ctx.fillText(afterText, currentX, y + 2);
+                }
+            } else {
+                // Обычный черный текст
+                ctx.fillStyle = 'black';
+                ctx.fillText(line, textX + 10, y + 2);
+            }
         });
         
         const t = (frameCount % 60) / 60;
