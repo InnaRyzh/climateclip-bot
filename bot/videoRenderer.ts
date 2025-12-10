@@ -276,86 +276,86 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         // CTA текст в том же стиле, что и текстовые блоки
         const ctaText = "О причинах учащения природных катастроф и прогнозах на ближайшие годы - в климатическом докладе учёных АЛЛАТРА";
         
-        // Позиционирование как у текстовых блоков
-        const safeBottom = HEIGHT - 400;
-        const quoteSize = 50;
-        const safeMarginX = 160;
-        const startX = safeMarginX;
+        // Позиционирование как у текстовых блоков (используем другие имена переменных, чтобы избежать конфликта)
+        const ctaSafeBottom = HEIGHT - 400;
+        const ctaQuoteSize = 50;
+        const ctaSafeMarginX = 160;
+        const ctaStartX = ctaSafeMarginX;
         
-        let fontSize = 32;
-        ctx.font = \`bold \${fontSize}px Arial, sans-serif\`;
-        const maxTextW = WIDTH - safeMarginX * 2 - quoteSize - 40;
-        let lines = getLines(ctx, ctaText, maxTextW);
+        let ctaFontSize = 32;
+        ctx.font = \`bold \${ctaFontSize}px Arial, sans-serif\`;
+        const ctaMaxTextW = WIDTH - ctaSafeMarginX * 2 - ctaQuoteSize - 40;
+        let ctaLines = getLines(ctx, ctaText, ctaMaxTextW);
         
         // Автоматическое уменьшение шрифта если не влезает
-        while (lines.length > 10 && fontSize > 20) {
-            fontSize -= 2;
-            ctx.font = \`bold \${fontSize}px Arial, sans-serif\`;
-            lines = getLines(ctx, ctaText, maxTextW);
+        while (ctaLines.length > 10 && ctaFontSize > 20) {
+            ctaFontSize -= 2;
+            ctx.font = \`bold \${ctaFontSize}px Arial, sans-serif\`;
+            ctaLines = getLines(ctx, ctaText, ctaMaxTextW);
         }
         
-        const gap = 2;
-        const boxHeight = fontSize + 4;
-        const totalH = (lines.length * boxHeight) + ((lines.length - 1) * gap);
-        const startY = safeBottom - totalH;
+        const ctaGap = 2;
+        const ctaBoxHeight = ctaFontSize + 4;
+        const ctaTotalH = (ctaLines.length * ctaBoxHeight) + ((ctaLines.length - 1) * ctaGap);
+        const ctaStartY = ctaSafeBottom - ctaTotalH;
         
         // Рисуем иконку кавычек слева (как у текстовых блоков)
-        drawQuoteIcon(ctx, startX, startY, quoteSize);
+        drawQuoteIcon(ctx, ctaStartX, ctaStartY, ctaQuoteSize);
         
-        const textX = startX + quoteSize + 12;
+        const ctaTextX = ctaStartX + ctaQuoteSize + 12;
         
         // Разбиваем текст на части для выделения красным "ученых АЛЛАТРА"
-        const highlightPhrase = "учёных АЛЛАТРА";
-        const highlightPhraseUpper = "УЧЁНЫХ АЛЛАТРА";
+        const ctaHighlightPhrase = "учёных АЛЛАТРА";
+        const ctaHighlightPhraseUpper = "УЧЁНЫХ АЛЛАТРА";
         
-        lines.forEach((line, i) => {
-            const y = startY + (i * (boxHeight + gap));
+        ctaLines.forEach((ctaLine, ctaI) => {
+            const ctaY = ctaStartY + (ctaI * (ctaBoxHeight + ctaGap));
             
             // Проверяем, содержит ли строка фразу для выделения
-            const lineUpper = line.toUpperCase();
-            const hasHighlight = lineUpper.includes(highlightPhraseUpper);
+            const ctaLineUpper = ctaLine.toUpperCase();
+            const ctaHasHighlight = ctaLineUpper.includes(ctaHighlightPhraseUpper);
             
             // Измеряем ширину текста для плашки
-            const textW = ctx.measureText(line).width;
+            const ctaTextW = ctx.measureText(ctaLine).width;
             
             // Рисуем белую плашку
             ctx.fillStyle = 'white';
-            ctx.fillRect(textX, y, textW + 20, boxHeight);
+            ctx.fillRect(ctaTextX, ctaY, ctaTextW + 20, ctaBoxHeight);
             
             // Рисуем текст с выделением красным
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             
-            if (hasHighlight) {
+            if (ctaHasHighlight) {
                 // Разбиваем строку на части до и после выделяемой фразы
-                const highlightIndex = lineUpper.indexOf(highlightPhraseUpper);
-                const beforeText = line.substring(0, highlightIndex);
-                const highlightText = line.substring(highlightIndex, highlightIndex + highlightPhrase.length);
-                const afterText = line.substring(highlightIndex + highlightPhrase.length);
+                const ctaHighlightIndex = ctaLineUpper.indexOf(ctaHighlightPhraseUpper);
+                const ctaBeforeText = ctaLine.substring(0, ctaHighlightIndex);
+                const ctaHighlightText = ctaLine.substring(ctaHighlightIndex, ctaHighlightIndex + ctaHighlightPhrase.length);
+                const ctaAfterText = ctaLine.substring(ctaHighlightIndex + ctaHighlightPhrase.length);
                 
-                let currentX = textX + 10;
+                let ctaCurrentX = ctaTextX + 10;
                 
                 // Рисуем текст до выделения (черный)
-                if (beforeText) {
+                if (ctaBeforeText) {
                     ctx.fillStyle = 'black';
-                    ctx.fillText(beforeText, currentX, y + 2);
-                    currentX += ctx.measureText(beforeText).width;
+                    ctx.fillText(ctaBeforeText, ctaCurrentX, ctaY + 2);
+                    ctaCurrentX += ctx.measureText(ctaBeforeText).width;
                 }
                 
                 // Рисуем выделенную фразу (красный)
                 ctx.fillStyle = '#FF0000';
-                ctx.fillText(highlightText, currentX, y + 2);
-                currentX += ctx.measureText(highlightText).width;
+                ctx.fillText(ctaHighlightText, ctaCurrentX, ctaY + 2);
+                ctaCurrentX += ctx.measureText(ctaHighlightText).width;
                 
                 // Рисуем текст после выделения (черный)
-                if (afterText) {
+                if (ctaAfterText) {
                     ctx.fillStyle = 'black';
-                    ctx.fillText(afterText, currentX, y + 2);
+                    ctx.fillText(ctaAfterText, ctaCurrentX, ctaY + 2);
                 }
             } else {
                 // Обычный черный текст
                 ctx.fillStyle = 'black';
-                ctx.fillText(line, textX + 10, y + 2);
+                ctx.fillText(ctaLine, ctaTextX + 10, ctaY + 2);
             }
         });
         
