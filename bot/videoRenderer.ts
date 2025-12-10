@@ -320,7 +320,12 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         try {
             console.log('Waiting for fonts...');
             try {
-                await document.fonts.load('900 48px "Benzin-Bold"');
+                // Загружаем несколько размеров, чтобы шрифт гарантированно применился на всех слайдах (в т.ч. крупный заголовок)
+                await Promise.all([
+                    document.fonts.load('900 48px "Benzin-Bold"'),
+                    document.fonts.load('900 60px "Benzin-Bold"'),
+                    document.fonts.load('900 90px "Benzin-Bold"')
+                ]);
                 await document.fonts.ready;
                 console.log('Fonts loaded!');
             } catch (e) { console.warn('Font loading warning:', e); }
