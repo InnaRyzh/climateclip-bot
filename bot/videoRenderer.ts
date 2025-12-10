@@ -95,6 +95,14 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
     };
 
+    const formatCountry = (str) => {
+        if (!str) return '';
+        return str
+          .split(' ')
+          .map(w => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : '')
+          .join(' ');
+    };
+
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
         return dateStr.replace(/\\b([А-ЯЁ]+)\\b/g, (match) => {
@@ -661,7 +669,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                                 // 1. Вычисляем размеры СТРАНЫ
                                 if (options.country) {
                                     ctx.font = \`900 \${cFontSize}px "Benzin-Bold", Arial\`;
-                                    cText = options.country.toUpperCase();
+                                    cText = formatCountry(options.country);
                                     
                                     // Авто-уменьшение шрифта если длинное название
                                     const maxScreenW = WIDTH - 100;
