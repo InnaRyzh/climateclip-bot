@@ -334,13 +334,13 @@ export async function downloadFile(
   }
   
   // Проверяем, используем ли локальный API
-  const useLocalApi = process.env.USE_LOCAL_API === 'true';
+  const isLocalApi = process.env.USE_LOCAL_API === 'true';
   const localApiUrl = process.env.LOCAL_API_URL || 'http://localhost:8081';
   
-  if (useLocalApi) {
+  if (isLocalApi) {
     console.log(`Using local API for getFile: ${localApiUrl}`);
   } else {
-    console.log('Using standard Telegram Bot API for getFile (20MB limit)');
+    console.log('Using standard Telegram Bot API (20MB limit)');
   }
   
   // Retry для получения информации о файле
@@ -393,7 +393,7 @@ export async function downloadFile(
   const localPath = path.join(TEMP_DIR, `${Date.now()}_${fileName}`);
   
   // Если используем локальный API и файл доступен локально - просто копируем его
-  if (useLocalApi && file.file_path && (file.file_path.startsWith('/') || file.file_path.startsWith('\\'))) {
+  if (isLocalApi && file.file_path && (file.file_path.startsWith('/') || file.file_path.startsWith('\\'))) {
     try {
       console.log(`Local API mode: checking if file exists at ${file.file_path}`);
       // Проверяем существование файла
@@ -413,7 +413,7 @@ export async function downloadFile(
     fileUrl = await bot.getFileLink(fileId);
   } catch (e) {
     // Fallback если getFileLink не сработал
-    const baseUrl = useLocalApi 
+    const baseUrl = isLocalApi 
       ? (process.env.LOCAL_API_URL || 'http://localhost:8081') 
       : 'https://api.telegram.org';
     fileUrl = `${baseUrl}/file/bot${token}/${file.file_path}`;
