@@ -59,43 +59,31 @@ export async function trimVideoToDuration(
   const base = path.basename(inputPath, ext);
   const maxSizeBytes = 20 * 1024 * 1024; // 20 МБ
   
-  // Пробуем разные варианты сжатия для максимального качества
+  // Пробуем варианты сжатия (только H.264 для совместимости с Chromium/Telegram)
   const attempts = [
-    // HEVC (H.265) с CRF 20 - лучшее качество при меньшем размере
-    {
-      codec: 'libx265',
-      crf: 20,
-      preset: 'slow',
-      audio: 'aac',
-      audioBitrate: '128k',
-      suffix: '_h265_crf20'
-    },
-    // HEVC с CRF 22 - чуть больше сжатие, но всё ещё отличное качество
-    {
-      codec: 'libx265',
-      crf: 22,
-      preset: 'slow',
-      audio: 'aac',
-      audioBitrate: '128k',
-      suffix: '_h265_crf22'
-    },
-    // x264 с CRF 20 - если HEVC не поддерживается
     {
       codec: 'libx264',
       crf: 20,
       preset: 'slow',
       audio: 'aac',
-      audioBitrate: '96k',
+      audioBitrate: '128k',
       suffix: '_x264_crf20'
     },
-    // x264 с CRF 22 - последний вариант
     {
       codec: 'libx264',
       crf: 22,
+      preset: 'slow',
+      audio: 'aac',
+      audioBitrate: '128k',
+      suffix: '_x264_crf22'
+    },
+    {
+      codec: 'libx264',
+      crf: 24,
       preset: 'medium',
       audio: 'aac',
       audioBitrate: '96k',
-      suffix: '_x264_crf22'
+      suffix: '_x264_crf24'
     }
   ];
 
