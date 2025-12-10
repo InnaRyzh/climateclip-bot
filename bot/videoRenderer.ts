@@ -322,7 +322,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             console.log('Waiting for fonts...');
             try {
                 // Проверяем доступность шрифта
-                const fontUrl = 'http://localhost:${serverPort}/assets/fonts/benzin-bold.ttf';
+                const fontUrl = 'http://localhost:' + ${serverPort} + '/assets/fonts/benzin-bold.ttf';
                 console.log('Loading font from:', fontUrl);
                 
                 // Загружаем несколько размеров, чтобы шрифт гарантированно применился на всех слайдах (в т.ч. крупный заголовок)
