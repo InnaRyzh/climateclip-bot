@@ -60,62 +60,49 @@ export async function trimVideoToDuration(
   // Для локального API (2 ГБ) не жмём размер жёстко, только обеспечиваем H.264 и длительность
   const maxSizeBytes = 2 * 1024 * 1024 * 1024; // 2 ГБ
   
-  // Высокое качество: CRF 18 (почти без потерь), preset slow для лучшего качества
-  const attempts = [
-    {
-      codec: 'libx264',
-      crf: 18,  // Высокое качество (меньше = лучше качество, больше размер)
-      preset: 'slow',  // Медленнее, но лучше качество
-      audio: 'aac',
-      audioBitrate: '192k',  // Выше битрейт аудио
-      suffix: '_x264_crf18'
-    }
-  ];
-
-  for (const attempt of attempts) {
-    const outputPath = path.join(TEMP_DIR, `${base}_trim${attempt.suffix}${ext}`);
-    
-    try {
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg(inputPath)
-          .outputOptions([
-            `-t ${durationSec}`,
-            `-c:v ${attempt.codec}`,
-            `-crf ${attempt.crf}`,
-            `-preset ${attempt.preset}`,
-            `-pix_fmt yuv420p`,
-            `-c:a ${attempt.audio}`,
-            `-b:a ${attempt.audioBitrate}`,
-            `-movflags +faststart`
-          ])
-          .on('end', () => resolve())
-          .on('error', (err) => reject(err))
-          .save(outputPath);
-      });
-
-      // Проверяем размер файла (только для логов, 2 ГБ лимит локального API)
-      const stats = await fs.stat(outputPath);
-      console.log(`Video compressed: ${(stats.size / 1024 / 1024).toFixed(2)}MB using ${attempt.codec} CRF ${attempt.crf}`);
-      return outputPath;
-    } catch (error) {
-      // Если кодек не поддерживается, пробуем следующий
-      console.log(`Codec ${attempt.codec} failed, trying next...`);
-      await fs.unlink(outputPath).catch(() => {});
-      continue;
-    }
-  }
-
-  // Если все варианты не подошли, возвращаем хотя бы обрезанное видео
-  const fallbackPath = path.join(TEMP_DIR, `${base}_trim_fallback${ext}`);
-  await new Promise<void>((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions([`-t ${durationSec}`, `-c copy`])
-      .on('end', () => resolve())
-      .on('error', (err) => reject(err))
-      .save(fallbackPath);
-  });
+  // Без сжатия: только обрезка до нужной длительности, копируем потоки без перекодирования
+  const outputPath = path.join(TEMP_DIR, `${base}_trim${ext}`);
   
-  return fallbackPath;
+  try {
+    // Пробуем обрезать без перекодирования (быстро, без потери качества)
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(inputPath)
+        .outputOptions([
+          `-t ${durationSec}`,
+          `-c copy`,  // Копируем потоки без перекодирования
+          `-avoid_negative_ts make_zero`  // Исправляем временные метки
+        ])
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
+        .save(outputPath);
+    });
+    
+    const stats = await fs.stat(outputPath);
+    console.log(`Video trimmed (no compression): ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
+    return outputPath;
+  } catch (error) {
+    // Если обрезка без перекодирования не работает (например, нужна точная обрезка),
+    // используем lossless режим (без потери качества)
+    console.log('Copy mode failed, using lossless encoding...');
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(inputPath)
+        .outputOptions([
+          `-t ${durationSec}`,
+          `-c:v libx264`,
+          `-qp 0`,  // Lossless режим (без потери качества)
+          `-preset veryslow`,
+          `-c:a copy`,  // Копируем аудио без перекодирования
+          `-movflags +faststart`
+        ])
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
+        .save(outputPath);
+    });
+    
+    const stats = await fs.stat(outputPath);
+    console.log(`Video trimmed (lossless): ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
+    return outputPath;
+  }
 }
 
 // Скачивание файла с retry механизмом
