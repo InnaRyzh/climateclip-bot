@@ -399,6 +399,9 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             recorder.start();
 
             const totalDuration = (options.template === 'grid' ? GRID_CONTENT_DURATION : NEWS_CONTENT_DURATION) + CTA_DURATION;
+            console.log('Total video duration:', totalDuration, 'seconds');
+            console.log('NEWS_CONTENT_DURATION:', NEWS_CONTENT_DURATION, 'seconds');
+            console.log('CTA_DURATION:', CTA_DURATION, 'seconds');
             const startTime = performance.now();
             let frameCount = 0;
 
