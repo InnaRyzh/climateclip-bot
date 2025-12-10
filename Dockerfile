@@ -40,19 +40,10 @@ RUN cd bot && npm install --production=false
 # Копируем весь проект
 COPY . .
 
-WORKDIR /app/bot
+# Копируем скрипт запуска
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
-# Скрипт запуска: сначала telegram-bot-api, потом бот
-RUN echo '#!/bin/sh\n\
-if [ -n "$TELEGRAM_API_ID" ] && [ -n "$TELEGRAM_API_HASH" ]; then\n\
-  echo "Starting local Telegram Bot API server..."\n\
-  telegram-bot-api --local --api-id=${TELEGRAM_API_ID} --api-hash=${TELEGRAM_API_HASH} --http-port=8081 &\n\
-  sleep 3\n\
-  export USE_LOCAL_API=true\n\
-  export LOCAL_API_URL=http://localhost:8081\n\
-fi\n\
-echo "Starting bot..."\n\
-npx tsx server.ts\n\
-' > /app/start.sh && chmod +x /app/start.sh
+WORKDIR /app/bot
 
 CMD ["/app/start.sh"]
