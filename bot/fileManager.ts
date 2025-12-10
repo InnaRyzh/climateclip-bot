@@ -60,7 +60,7 @@ export async function trimVideoToDuration(
   // Для локального API (2 ГБ) не жмём размер жёстко, только обеспечиваем H.264 и длительность
   const maxSizeBytes = 2 * 1024 * 1024 * 1024; // 2 ГБ
   
-  // Без сжатия: только обрезка до нужной длительности, копируем потоки без перекодирования
+  // Высокое качество с разумным размером: CRF 20 (отличное качество, но файлы не огромные)
   const outputPath = path.join(TEMP_DIR, `${base}_trim${ext}`);
   
   try {
@@ -78,19 +78,18 @@ export async function trimVideoToDuration(
     });
     
     const stats = await fs.stat(outputPath);
-    console.log(`Video trimmed (no compression): ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`Video trimmed (copy mode): ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
     return outputPath;
   } catch (error) {
-    // Если обрезка без перекодирования не работает (например, нужна точная обрезка),
-    // используем lossless режим (без потери качества)
-    console.log('Copy mode failed, using lossless encoding...');
+    // Если обрезка без перекодирования не работает, используем CRF 20 (высокое качество)
+    console.log('Copy mode failed, using CRF 20 encoding...');
     await new Promise<void>((resolve, reject) => {
       ffmpeg(inputPath)
         .outputOptions([
           `-t ${durationSec}`,
           `-c:v libx264`,
-          `-qp 0`,  // Lossless режим (без потери качества)
-          `-preset veryslow`,
+          `-crf 20`,  // Высокое качество (18-20 = отличное, 23 = хорошее)
+          `-preset slow`,  // Баланс скорости и качества
           `-c:a copy`,  // Копируем аудио без перекодирования
           `-movflags +faststart`
         ])
@@ -100,7 +99,7 @@ export async function trimVideoToDuration(
     });
     
     const stats = await fs.stat(outputPath);
-    console.log(`Video trimmed (lossless): ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`Video trimmed (CRF 20): ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
     return outputPath;
   }
 }
