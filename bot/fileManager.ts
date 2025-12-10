@@ -49,7 +49,7 @@ async function cleanupIncompleteFile(filePath: string) {
   }
 }
 
-// Обрезка видео до заданной длительности (по умолчанию 6 секунд)
+// Обрезка и сжатие видео до заданной длительности с максимальным качеством (<20 МБ)
 export async function trimVideoToDuration(
   inputPath: string,
   durationSec: number = 6
@@ -57,15 +57,98 @@ export async function trimVideoToDuration(
   await ensureTempDir();
   const ext = path.extname(inputPath) || '.mp4';
   const base = path.basename(inputPath, ext);
-  const outputPath = path.join(TEMP_DIR, `${base}_trim${ext}`);
+  const maxSizeBytes = 20 * 1024 * 1024; // 20 МБ
+  
+  // Пробуем разные варианты сжатия для максимального качества
+  const attempts = [
+    // HEVC (H.265) с CRF 20 - лучшее качество при меньшем размере
+    {
+      codec: 'libx265',
+      crf: 20,
+      preset: 'slow',
+      audio: 'aac',
+      audioBitrate: '128k',
+      suffix: '_h265_crf20'
+    },
+    // HEVC с CRF 22 - чуть больше сжатие, но всё ещё отличное качество
+    {
+      codec: 'libx265',
+      crf: 22,
+      preset: 'slow',
+      audio: 'aac',
+      audioBitrate: '128k',
+      suffix: '_h265_crf22'
+    },
+    // x264 с CRF 20 - если HEVC не поддерживается
+    {
+      codec: 'libx264',
+      crf: 20,
+      preset: 'slow',
+      audio: 'aac',
+      audioBitrate: '96k',
+      suffix: '_x264_crf20'
+    },
+    // x264 с CRF 22 - последний вариант
+    {
+      codec: 'libx264',
+      crf: 22,
+      preset: 'medium',
+      audio: 'aac',
+      audioBitrate: '96k',
+      suffix: '_x264_crf22'
+    }
+  ];
 
-  return new Promise((resolve, reject) => {
+  for (const attempt of attempts) {
+    const outputPath = path.join(TEMP_DIR, `${base}_trim${attempt.suffix}${ext}`);
+    
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(inputPath)
+          .outputOptions([
+            `-t ${durationSec}`,
+            `-c:v ${attempt.codec}`,
+            `-crf ${attempt.crf}`,
+            `-preset ${attempt.preset}`,
+            `-pix_fmt yuv420p`,
+            `-c:a ${attempt.audio}`,
+            `-b:a ${attempt.audioBitrate}`,
+            `-movflags +faststart`
+          ])
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .save(outputPath);
+      });
+
+      // Проверяем размер файла
+      const stats = await fs.stat(outputPath);
+      if (stats.size <= maxSizeBytes) {
+        console.log(`Video compressed: ${(stats.size / 1024 / 1024).toFixed(2)}MB using ${attempt.codec} CRF ${attempt.crf}`);
+        return outputPath;
+      } else {
+        // Удаляем слишком большой файл и пробуем следующий вариант
+        await fs.unlink(outputPath).catch(() => {});
+        console.log(`Attempt ${attempt.codec} CRF ${attempt.crf} too large: ${(stats.size / 1024 / 1024).toFixed(2)}MB, trying next...`);
+      }
+    } catch (error) {
+      // Если кодек не поддерживается, пробуем следующий
+      console.log(`Codec ${attempt.codec} failed, trying next...`);
+      await fs.unlink(outputPath).catch(() => {});
+      continue;
+    }
+  }
+
+  // Если все варианты не подошли, возвращаем хотя бы обрезанное видео
+  const fallbackPath = path.join(TEMP_DIR, `${base}_trim_fallback${ext}`);
+  await new Promise<void>((resolve, reject) => {
     ffmpeg(inputPath)
-      .outputOptions([`-t ${durationSec}`])
-      .on('end', () => resolve(outputPath))
+      .outputOptions([`-t ${durationSec}`, `-c copy`])
+      .on('end', () => resolve())
       .on('error', (err) => reject(err))
-      .save(outputPath);
+      .save(fallbackPath);
   });
+  
+  return fallbackPath;
 }
 
 // Скачивание файла с retry механизмом
