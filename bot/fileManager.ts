@@ -4,6 +4,13 @@ import { createWriteStream } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import https from 'https';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegPath from 'ffmpeg-static';
+
+// Настраиваем путь к ffmpeg для fluent-ffmpeg
+if (ffmpegPath) {
+  ffmpeg.setFfmpegPath(ffmpegPath);
+}
 import http from 'http';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,6 +47,25 @@ async function cleanupIncompleteFile(filePath: string) {
   } catch {
     // Игнорируем ошибки удаления
   }
+}
+
+// Обрезка видео до заданной длительности (по умолчанию 6 секунд)
+export async function trimVideoToDuration(
+  inputPath: string,
+  durationSec: number = 6
+): Promise<string> {
+  await ensureTempDir();
+  const ext = path.extname(inputPath) || '.mp4';
+  const base = path.basename(inputPath, ext);
+  const outputPath = path.join(TEMP_DIR, `${base}_trim${ext}`);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([`-t ${durationSec}`])
+      .on('end', () => resolve(outputPath))
+      .on('error', (err) => reject(err))
+      .save(outputPath);
+  });
 }
 
 // Скачивание файла с retry механизмом

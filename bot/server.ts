@@ -237,6 +237,7 @@ async function validateVideoFiles(files: string[]) {
 
 async function processGridTemplate(chatId: number, state: UserState) {
   const videoPaths: string[] = [];
+  const trimmedPaths: string[] = [];
   try {
     const started = Date.now();
     await bot.sendMessage(chatId, '⏳ Начинаю обработку Grid...');
@@ -247,11 +248,17 @@ async function processGridTemplate(chatId: number, state: UserState) {
     }
     
     await validateVideoFiles(videoPaths);
+
+    // Обрезаем каждое видео до 6 секунд, чтобы не превышать лимиты и ускорить рендер
+    for (const p of videoPaths) {
+      const trimmed = await trimVideoToDuration(p, 6);
+      trimmedPaths.push(trimmed);
+    }
     
     await bot.sendMessage(chatId, '🎬 Рендерю...');
     const webmPath = await renderVideo({
         template: 'grid',
-        videos: videoPaths,
+        videos: trimmedPaths,
         countries: state.countries,
         date: state.date
     }, Number(PORT));
@@ -261,7 +268,7 @@ async function processGridTemplate(chatId: number, state: UserState) {
     
     await bot.sendVideo(chatId, mp4Path);
     
-    await cleanupFiles([...videoPaths, webmPath, mp4Path]);
+    await cleanupFiles([...videoPaths, ...trimmedPaths, webmPath, mp4Path]);
     userStates.delete(chatId);
     console.log(`Grid done in ${(Date.now() - started) / 1000}s`);
     
@@ -273,6 +280,7 @@ async function processGridTemplate(chatId: number, state: UserState) {
 
 async function processNewsTemplate(chatId: number, state: UserState) {
   const videoPaths: string[] = [];
+  const trimmedPaths: string[] = [];
   try {
     const started = Date.now();
     await bot.sendMessage(chatId, '⏳ Начинаю обработку News...');
@@ -283,11 +291,17 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     }
     
     await validateVideoFiles(videoPaths);
+
+    // Обрезаем каждое видео до 6 секунд, чтобы не превышать лимиты и ускорить рендер
+    for (const p of videoPaths) {
+      const trimmed = await trimVideoToDuration(p, 6);
+      trimmedPaths.push(trimmed);
+    }
     
     await bot.sendMessage(chatId, '🎬 Рендерю...');
     const webmPath = await renderVideo({
         template: 'news',
-        videos: videoPaths,
+        videos: trimmedPaths,
         country: state.country,
         date: state.newsDate,
         tickers: state.newsTickers
@@ -298,7 +312,7 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     
     await bot.sendVideo(chatId, mp4Path);
     
-    await cleanupFiles([...videoPaths, webmPath, mp4Path]);
+    await cleanupFiles([...videoPaths, ...trimmedPaths, webmPath, mp4Path]);
     userStates.delete(chatId);
     console.log(`News done in ${(Date.now() - started) / 1000}s`);
     
