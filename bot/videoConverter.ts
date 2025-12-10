@@ -17,14 +17,14 @@ export async function convertWebmToMp4(inputPath: string): Promise<string> {
     ffmpeg(inputPath)
       .outputOptions([
         '-c:v libx264',     // Видео кодек H.264
-        '-preset fast',      // Баланс скорости и качества
-        '-crf 23',           // Качество
+        '-preset slow',      // Медленнее, но лучше качество (было 'fast')
+        '-crf 18',           // Высокое качество (было 23, меньше = лучше качество)
         '-vf scale=1080:1920,setsar=1:1', // Масштабирование
         '-r 30',             // Принудительно 30 fps
         '-vsync cfr',        // Постоянная частота кадров (лечит растягивание)
         '-aspect 9:16',      // Соотношение сторон
         '-c:a aac',          // Аудио кодек AAC
-        '-b:a 128k',         // Битрейт аудио
+        '-b:a 192k',         // Выше битрейт аудио (было 128k)
         '-movflags +faststart', // Для стриминга (быстрый старт)
         '-pix_fmt yuv420p'   // Для совместимости с плеерами (QuickTime и др.)
       ])

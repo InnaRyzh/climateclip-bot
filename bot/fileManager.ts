@@ -60,31 +60,15 @@ export async function trimVideoToDuration(
   // Для локального API (2 ГБ) не жмём размер жёстко, только обеспечиваем H.264 и длительность
   const maxSizeBytes = 2 * 1024 * 1024 * 1024; // 2 ГБ
   
-  // Пробуем варианты сжатия (только H.264 для совместимости с Chromium/Telegram)
+  // Высокое качество: CRF 18 (почти без потерь), preset slow для лучшего качества
   const attempts = [
     {
       codec: 'libx264',
-      crf: 20,
-      preset: 'slow',
+      crf: 18,  // Высокое качество (меньше = лучше качество, больше размер)
+      preset: 'slow',  // Медленнее, но лучше качество
       audio: 'aac',
-      audioBitrate: '128k',
-      suffix: '_x264_crf20'
-    },
-    {
-      codec: 'libx264',
-      crf: 22,
-      preset: 'slow',
-      audio: 'aac',
-      audioBitrate: '128k',
-      suffix: '_x264_crf22'
-    },
-    {
-      codec: 'libx264',
-      crf: 24,
-      preset: 'medium',
-      audio: 'aac',
-      audioBitrate: '96k',
-      suffix: '_x264_crf24'
+      audioBitrate: '192k',  // Выше битрейт аудио
+      suffix: '_x264_crf18'
     }
   ];
 
