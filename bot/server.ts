@@ -22,6 +22,8 @@ const app = express();
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PORT = process.env.PORT || 3000;
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
+const MAX_TG_FILE_SIZE_MB = 20;
+const MAX_TG_FILE_SIZE = MAX_TG_FILE_SIZE_MB * 1024 * 1024;
 
 console.log('PORT:', PORT);
 console.log('BOT_TOKEN:', BOT_TOKEN ? 'SET' : 'MISSING');
@@ -137,6 +139,13 @@ bot.on('message', async (msg) => {
   if (state.step === 'waiting_videos') {
     if (msg.video || msg.document) {
       const fileId = msg.video?.file_id || msg.document?.file_id;
+      const fileSize = msg.video?.file_size || msg.document?.file_size || 0;
+
+      if (fileSize > MAX_TG_FILE_SIZE) {
+        await bot.sendMessage(chatId, `❌ Файл слишком большой (${(fileSize / 1024 / 1024).toFixed(1)} МБ). Telegram Bot API позволяет скачивать до ${MAX_TG_FILE_SIZE_MB} МБ. Сожмите видео или отправьте файл меньше ${MAX_TG_FILE_SIZE_MB} МБ.`);
+        return;
+      }
+
       if (fileId) {
         state.videos!.push({ fileId });
         
