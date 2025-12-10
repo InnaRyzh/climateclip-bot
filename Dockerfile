@@ -31,6 +31,20 @@ RUN apt-get update && apt-get install -y \
     zlib1g \
     ca-certificates \
     curl \
+    chromium \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libxss1 \
+    libxtst6 \
+    fonts-liberation \
+    libgbm1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Копируем telegram-bot-api из builder

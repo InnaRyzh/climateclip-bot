@@ -696,13 +696,30 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
     }
     
     const browserVideoUrls = await prepareVideosForBrowser(options.videos, serverPort);
-    const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-    let executablePath = undefined;
-    try { await fs.access(chromePath); executablePath = chromePath; } catch {}
+
+    // Ищем исполняемый файл Chrome/Chromium
+    const candidatePaths = [
+      process.env.CHROME_PATH,
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ].filter(Boolean) as string[];
+
+    let executablePath: string | undefined = undefined;
+    for (const p of candidatePaths) {
+      try { await fs.access(p); executablePath = p; break; } catch {}
+    }
+
+    if (!executablePath) {
+      console.warn('Chromium/Chrome executable not found, Puppeteer will try default');
+    } else {
+      console.log(`Using Chromium executable: ${executablePath}`);
+    }
 
     browser = await puppeteer.launch({
-      headless: true, 
-      executablePath, 
+      headless: true,
+      executablePath,
       pipe: true,
       args: [
         '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
