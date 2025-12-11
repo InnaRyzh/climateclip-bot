@@ -66,8 +66,13 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     const videoUrls = ${serializedVideoUrls};
     const uploadUrl = "${uploadUrl}";
 
-    const WIDTH = 1080;
-    const HEIGHT = 1920;
+    const WIDTH_GRID = 720;
+    const HEIGHT_GRID = 1280;
+    const WIDTH_NEWS = 1080;
+    const HEIGHT_NEWS = 1920;
+
+    const WIDTH = options.template === 'grid' ? WIDTH_GRID : WIDTH_NEWS;
+    const HEIGHT = options.template === 'grid' ? HEIGHT_GRID : HEIGHT_NEWS;
     const FPS_GRID = 30; // менее ресурсоёмко, снижает дропы кадров
     const FPS_NEWS = 60;
     const FPS = options.template === 'grid' ? FPS_GRID : FPS_NEWS;
@@ -442,6 +447,14 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d');
             const mimeType = getMimeType();
+            
+            // Динамически подгоняем холст и body под выбранный шаблон (grid — 720x1280 для снижения нагрузки)
+            canvas.width = WIDTH;
+            canvas.height = HEIGHT;
+            canvas.style.width = WIDTH + 'px';
+            canvas.style.height = HEIGHT + 'px';
+            document.body.style.width = WIDTH + 'px';
+            document.body.style.height = HEIGHT + 'px';
             
             // Максимально высокий битрейт, чтобы минимизировать сжатие (повышаем для grid)
             const bitRate = options.template === 'news' ? 14000000 : 12000000;
