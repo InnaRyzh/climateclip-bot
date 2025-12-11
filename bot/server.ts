@@ -292,9 +292,9 @@ bot.on('message', async (msg) => {
              console.error('AI Error:', e);
              await bot.sendMessage(chatId, '❌ Ошибка AI обработки. Попробуйте еще раз.');
          }
-       } else {
-         await bot.sendMessage(chatId, '❌ Отправьте: Страна (строка 1), Дата (строка 2), Текст (далее)');
-       }
+      } else {
+         await bot.sendMessage(chatId, '❌ Отправьте: Дата (строка 1), Страна (строка 2), Текст (далее)');
+      }
     }
   }  // конец if (state.step === 'waiting_info' && text)
   } catch (error) {
