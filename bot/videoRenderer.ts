@@ -421,6 +421,9 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                 
                 // Подключаем все видео к общему выходу
                 videos.forEach(v => {
+                    // Для новостного шаблона звук нужен
+                    v.muted = false;
+                    v.volume = 1;
                     const source = audioCtx.createMediaElementSource(v);
                     source.connect(dest);
                 });
@@ -487,7 +490,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             } else {
                 videos.forEach(v => {
                     v.loop = false; // Отключаем loop, чтобы видео не повторялись
-                    v.volume = 0; // Отключаем звук по умолчанию
+                    v.muted = false; // Для news звук нужен в итоговом ролике
+                    v.volume = 1;    // Возвращаем громкость
                 });
             }
             
