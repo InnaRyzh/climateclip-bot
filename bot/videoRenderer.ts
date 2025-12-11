@@ -1022,7 +1022,7 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
     });
 
     const page = await browser.newPage();
-    await page.setViewport({ width: 1080, height: 1920 });
+    await page.setViewport({ width: 1080, height: 1920, deviceScaleFactor: 1 });
 
     page.on('console', (msg) => {
       const text = msg.text();
@@ -1067,6 +1067,8 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
         '-pix_fmt', 'yuv420p',
         '-preset', 'slow',
         '-crf', '16',
+        // Гарантируем 9:16 без растяжения
+        '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2',
         '-movflags', '+faststart',
         outputPath
       ];
