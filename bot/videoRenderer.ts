@@ -111,6 +111,12 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
           .join(' ');
     };
 
+    // Для новостного шаблона выводим страну в верхнем регистре
+    const formatCountryNews = (str) => {
+        if (!str) return '';
+        return str.toUpperCase();
+    };
+
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
         return dateStr.replace(/\\b([А-ЯЁ]+)\\b/g, (match) => {
@@ -808,7 +814,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                                 // 1. Вычисляем размеры СТРАНЫ
                                 if (options.country) {
                                     ctx.font = \`900 \${cFontSize}px "Benzin-Bold", Arial\`;
-                                    cText = formatCountry(options.country);
+                                    cText = formatCountryNews(options.country);
                                     
                                     // Авто-уменьшение шрифта если длинное название
                                     const maxScreenW = WIDTH - 100;
