@@ -504,6 +504,9 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             })) : [];
             let currentNewsVideoIndex = -1;
 
+            const useFixedInterval = options.template === 'grid'; // для grid фиксированный таймер уменьшает нагрузку и дропы кадров
+            let intervalId = null;
+
             function loop() {
                 try {
                     const elapsed = (performance.now() - startTime) / 1000;
@@ -511,6 +514,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                     if (elapsed >= totalDuration) {
                         recorder.stop();
                         videos.forEach(v => { v.pause(); v.src = ''; v.remove(); });
+                        if (useFixedInterval && intervalId) clearInterval(intervalId);
                         return;
                     }
 
@@ -812,13 +816,21 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                         drawImageCTA(ctx, frameCount, ctaImage);
                     }
                     frameCount++;
-                    requestAnimationFrame(loop);
+                    if (!useFixedInterval) {
+                        requestAnimationFrame(loop);
+                    }
                 } catch (e) {
                     recorder.stop();
+                    if (useFixedInterval && intervalId) clearInterval(intervalId);
                     window.renderError = 'Loop error: ' + e.message;
                 }
             }
-            loop();
+            if (useFixedInterval) {
+                const frameMs = 1000 / FPS;
+                intervalId = setInterval(loop, frameMs);
+            } else {
+                loop();
+            }
         } catch (e) {
             window.renderError = 'Setup error: ' + e.message;
         }
