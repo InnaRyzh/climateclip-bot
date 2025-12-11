@@ -61,13 +61,13 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
 <body>
   <canvas id="canvas" width="1080" height="1920"></canvas>
   <script>
-    const WIDTH = 1080;
-    const HEIGHT = 1920;
-    
+    // Параметры рендера приходят сверху — определяем их до использования
     const options = ${serializedOptions};
     const videoUrls = ${serializedVideoUrls};
     const uploadUrl = "${uploadUrl}";
-    
+
+    const WIDTH = 1080;
+    const HEIGHT = 1920;
     const FPS_GRID = 30; // менее ресурсоёмко, снижает дропы кадров
     const FPS_NEWS = 60;
     const FPS = options.template === 'grid' ? FPS_GRID : FPS_NEWS;
