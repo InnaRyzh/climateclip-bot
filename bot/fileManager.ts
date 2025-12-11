@@ -54,7 +54,9 @@ export async function trimVideoToDuration(
   inputPath: string,
   durationSec: number = 6,
   targetFps?: number,
-  forceReencode: boolean = false
+  forceReencode: boolean = false,
+  targetWidth?: number,
+  targetHeight?: number
 ): Promise<string> {
   await ensureTempDir();
   const ext = path.extname(inputPath) || '.mp4';
@@ -67,12 +69,16 @@ export async function trimVideoToDuration(
   
   // Вариант принудительной перекодировки для выравнивания FPS/разрешения (используем для Grid)
   const encodeWithFps = async () => {
+    const scale = targetWidth && targetHeight
+      ? `scale=${targetWidth}:${targetHeight},setsar=1:1`
+      : `setsar=1:1`;
+
     const opts = [
       `-t ${durationSec}`,
       `-c:v libx264`,
       `-crf 18`,            // чуть выше качество, чтобы избежать деградации
       `-preset slow`,
-      `-vf scale=1080:1920,setsar=1:1`, // приводим к 1080x1920
+      `-vf ${scale}`, // приводим к целевому разрешению (например, 720x1280 для grid)
       `-pix_fmt yuv420p`,
       `-c:a copy`,
       `-movflags +faststart`

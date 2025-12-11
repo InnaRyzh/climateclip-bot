@@ -900,7 +900,8 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
         '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
         '--disable-extensions', '--no-first-run', '--no-zygote',
         '--disable-web-security', '--autoplay-policy=no-user-gesture-required',
-        '--enable-gpu-rasterization', '--enable-zero-copy'
+        '--enable-gpu-rasterization', '--enable-zero-copy',
+        '--disable-frame-rate-limit', '--disable-gpu-vsync'
       ],
     });
 
