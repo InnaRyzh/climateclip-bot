@@ -440,8 +440,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const ctx = canvas.getContext('2d');
             const mimeType = getMimeType();
             
-            // Максимально высокий битрейт, чтобы минимизировать сжатие
-            const bitRate = options.template === 'news' ? 12000000 : 8000000;
+            // Максимально высокий битрейт, чтобы минимизировать сжатие (повышаем для grid)
+            const bitRate = options.template === 'news' ? 14000000 : 12000000;
             
             const stream = canvas.captureStream(FPS);
             

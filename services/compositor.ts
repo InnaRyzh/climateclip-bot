@@ -322,8 +322,8 @@ export const renderGridVideo = async (data: GridTemplateData, onProgress: (p: nu
 
   const mimeType = getMimeType();
   const stream = canvas.captureStream(FPS);
-  // Поднимаем FPS и битрейт для более плавного grid-шаблона
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8000000 }); // 8 Mbps
+  // Поднимаем битрейт для более плавного grid-шаблона
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12000000 }); // 12 Mbps
   const chunks: Blob[] = [];
   
   recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
