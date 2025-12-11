@@ -4,7 +4,7 @@ import { GridTemplateData, NewsTemplateData, VideoFile } from "../types";
 // Константы конфигурации
 const WIDTH = 1080;
 const HEIGHT = 1920;
-const FPS = 30;
+const FPS = 60;
 
 // Длительности
 const GRID_CONTENT_DURATION = 20; 
@@ -314,7 +314,7 @@ export const renderGridVideo = async (data: GridTemplateData, onProgress: (p: nu
   let ctaImageEl: HTMLImageElement | null = null;
   if (data.ctaImage) {
       try {
-        ctaImageEl = await loadImage(URL.createObjectURL(data.ctaImage));
+      ctaImageEl = await loadImage(URL.createObjectURL(data.ctaImage));
       } catch (e) {
         console.warn('Ошибка загрузки CTA изображения:', e);
       }
@@ -322,7 +322,8 @@ export const renderGridVideo = async (data: GridTemplateData, onProgress: (p: nu
 
   const mimeType = getMimeType();
   const stream = canvas.captureStream(FPS);
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5000000 }); // 5 Mbps
+  // Поднимаем FPS и битрейт для более плавного grid-шаблона
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8000000 }); // 8 Mbps
   const chunks: Blob[] = [];
   
   recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
@@ -343,7 +344,7 @@ export const renderGridVideo = async (data: GridTemplateData, onProgress: (p: nu
     };
 
     try {
-      recorder.start();
+    recorder.start();
     } catch (e) {
       reject(new Error('Не удалось запустить запись видео: ' + e));
       return;
@@ -365,11 +366,11 @@ export const renderGridVideo = async (data: GridTemplateData, onProgress: (p: nu
 
     const loop = () => {
       try {
-        const elapsed = (performance.now() - startTime) / 1000;
-        onProgress(Math.min(elapsed / totalDuration, 0.99));
+      const elapsed = (performance.now() - startTime) / 1000;
+      onProgress(Math.min(elapsed / totalDuration, 0.99));
 
-        if (elapsed >= totalDuration) {
-          recorder.stop();
+      if (elapsed >= totalDuration) {
+        recorder.stop();
           validVideos.forEach(v => { 
             if(v) { 
               v.pause(); 
@@ -377,14 +378,14 @@ export const renderGridVideo = async (data: GridTemplateData, onProgress: (p: nu
               v.remove(); 
             } 
           });
-          return;
-        }
+        return;
+      }
 
-        // --- DRAW FRAME ---
-        ctx.fillStyle = 'black';
-        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      // --- DRAW FRAME ---
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-        if (elapsed < GRID_CONTENT_DURATION) {
+      if (elapsed < GRID_CONTENT_DURATION) {
         // Grid Layout
         const midY = HEIGHT / 2;
         const midX = WIDTH / 2;
@@ -458,12 +459,12 @@ export const renderGridVideo = async (data: GridTemplateData, onProgress: (p: nu
         // Логотип в правом нижнем углу
         drawLogo(ctx, WIDTH - 200, HEIGHT - 200, 160);
 
-        } else {
-          drawImageCTA(ctx, ctaImageEl, frameCount);
-        }
+      } else {
+        drawImageCTA(ctx, ctaImageEl, frameCount);
+      }
 
-        frameCount++;
-        requestAnimationFrame(loop);
+      frameCount++;
+      requestAnimationFrame(loop);
       } catch (e) {
         console.error('Render loop error:', e);
         recorder.stop();
@@ -591,9 +592,9 @@ export const renderNewsVideo = async (data: NewsTemplateData, onProgress: (p: nu
             
             // Дата в черном блоке с белой обводкой
             if (data.dateLabel) {
-                ctx.save();
+                 ctx.save();
                 ctx.font = 'bold 70px Arial';
-                ctx.textAlign = 'center';
+                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
                 const dateText = data.dateLabel.toUpperCase();
@@ -617,7 +618,7 @@ export const renderNewsVideo = async (data: NewsTemplateData, onProgress: (p: nu
                 ctx.fillStyle = '#ffffff';
                 ctx.fillText(dateText, WIDTH / 2, headerY);
                 
-                ctx.restore();
+                 ctx.restore();
             }
             
             // Страна в красном блоке с белой обводкой
@@ -658,7 +659,7 @@ export const renderNewsVideo = async (data: NewsTemplateData, onProgress: (p: nu
             const tickerInterval = NEWS_CONTENT_DURATION / 3;
             const tickerIndex = Math.floor(elapsed / tickerInterval);
             const currentTicker = data.newsTickers[Math.min(tickerIndex, 2)];
-            
+
             if (currentTicker && tickerIndex < 3) {
                 const localTime = elapsed % tickerInterval;
                 const fadeDuration = 0.8; 
@@ -745,7 +746,7 @@ export const renderNewsVideo = async (data: NewsTemplateData, onProgress: (p: nu
                          ctx.fillRect(0, drawY, WIDTH, barH);
                          
                          drawQuoteIcon(ctx, 50, drawY + 20, 70);
-                         
+
                          ctx.fillStyle = '#000000';
                          ctx.font = 'bold 52px Arial';
                          ctx.textAlign = 'left';
