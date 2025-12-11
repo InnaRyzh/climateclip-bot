@@ -358,7 +358,7 @@ async function processGridTemplate(chatId: number, state: UserState) {
     const dateStr = state.date ? sanitizeFileName(state.date) : 'date';
     const fileName = `${dateStr}_Весь_мир.mp4`;
     
-    const mp4Path = await convertWebmToMp4(webmPath, fileName);
+    const mp4Path = await convertWebmToMp4(webmPath, fileName, 30);
     
     await bot.sendVideo(chatId, mp4Path);
     
@@ -445,7 +445,7 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     const countryStr = state.country ? sanitizeFileName(state.country) : 'country';
     const fileName = `${dateStr}_${countryStr}.mp4`;
     
-    const mp4Path = await convertWebmToMp4(webmPath, fileName);
+    const mp4Path = await convertWebmToMp4(webmPath, fileName, 60);
     
     await bot.sendVideo(chatId, mp4Path);
     
