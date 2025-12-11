@@ -52,7 +52,9 @@ async function cleanupIncompleteFile(filePath: string) {
 // Обрезка и сжатие видео до заданной длительности с максимальным качеством (<20 МБ)
 export async function trimVideoToDuration(
   inputPath: string,
-  durationSec: number = 6
+  durationSec: number = 6,
+  targetFps?: number,
+  forceReencode: boolean = false
 ): Promise<string> {
   await ensureTempDir();
   const ext = path.extname(inputPath) || '.mp4';
@@ -63,6 +65,38 @@ export async function trimVideoToDuration(
   // Высокое качество с разумным размером: CRF 20 (отличное качество, но файлы не огромные)
   const outputPath = path.join(TEMP_DIR, `${base}_trim${ext}`);
   
+  // Вариант принудительной перекодировки для выравнивания FPS/разрешения (используем для Grid)
+  const encodeWithFps = async () => {
+    const opts = [
+      `-t ${durationSec}`,
+      `-c:v libx264`,
+      `-crf 18`,            // чуть выше качество, чтобы избежать деградации
+      `-preset slow`,
+      `-vf scale=1080:1920,setsar=1:1`, // приводим к 1080x1920
+      `-pix_fmt yuv420p`,
+      `-c:a copy`,
+      `-movflags +faststart`
+    ];
+    if (targetFps) {
+      opts.push(`-r ${targetFps}`);
+      opts.push(`-vsync cfr`);
+    }
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(inputPath)
+        .outputOptions(opts)
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
+        .save(outputPath);
+    });
+    const stats = await fs.stat(outputPath);
+    console.log(`Video trimmed (reencode ${targetFps || 'src'} fps): ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
+    return outputPath;
+  };
+
+  if (forceReencode || targetFps) {
+    return encodeWithFps();
+  }
+
   try {
     // Пробуем обрезать без перекодирования (быстро, без потери качества)
     await new Promise<void>((resolve, reject) => {
@@ -81,7 +115,7 @@ export async function trimVideoToDuration(
     console.log(`Video trimmed (copy mode): ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
     return outputPath;
   } catch (error) {
-    // Если обрезка без перекодирования не работает, используем CRF 20 (высокое качество)
+    // Если copy не работает, перекодируем с CRF 20
     console.log('Copy mode failed, using CRF 20 encoding...');
     await new Promise<void>((resolve, reject) => {
       ffmpeg(inputPath)
