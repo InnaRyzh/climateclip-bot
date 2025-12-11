@@ -66,13 +66,9 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     const videoUrls = ${serializedVideoUrls};
     const uploadUrl = "${uploadUrl}";
 
-    const WIDTH_GRID = 720;
-    const HEIGHT_GRID = 1280;
-    const WIDTH_NEWS = 1080;
-    const HEIGHT_NEWS = 1920;
-
-    const WIDTH = options.template === 'grid' ? WIDTH_GRID : WIDTH_NEWS;
-    const HEIGHT = options.template === 'grid' ? HEIGHT_GRID : HEIGHT_NEWS;
+    // Единое разрешение 1080x1920 для сохранения пропорций текста/элементов
+    const WIDTH = 1080;
+    const HEIGHT = 1920;
     const FPS_GRID = 30; // менее ресурсоёмко, снижает дропы кадров
     const FPS_NEWS = 60;
     const FPS = options.template === 'grid' ? FPS_GRID : FPS_NEWS;
@@ -448,7 +444,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const ctx = canvas.getContext('2d');
             const mimeType = getMimeType();
             
-            // Динамически подгоняем холст и body под выбранный шаблон (grid — 720x1280 для снижения нагрузки)
+            // Динамически подгоняем холст и body под шаблон (остаемся в 1080x1920, но гарантируем совпадение размеров)
             canvas.width = WIDTH;
             canvas.height = HEIGHT;
             canvas.style.width = WIDTH + 'px';
@@ -456,8 +452,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             document.body.style.width = WIDTH + 'px';
             document.body.style.height = HEIGHT + 'px';
             
-            // Максимально высокий битрейт, чтобы минимизировать сжатие (повышаем для grid)
-            const bitRate = options.template === 'news' ? 14000000 : 12000000;
+            // Повышаем битрейт для grid (16 Мбит/с) и news (14 Мбит/с) для плавности
+            const bitRate = options.template === 'news' ? 14000000 : 16000000;
             
             const stream = canvas.captureStream(FPS);
             
