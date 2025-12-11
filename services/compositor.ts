@@ -4,7 +4,8 @@ import { GridTemplateData, NewsTemplateData, VideoFile } from "../types";
 // Константы конфигурации
 const WIDTH = 1080;
 const HEIGHT = 1920;
-const FPS = 60;
+const GRID_FPS = 30; // снизим нагрузку для стабильности grid
+const NEWS_FPS = 60;
 
 // Длительности
 const GRID_CONTENT_DURATION = 20; 
@@ -321,8 +322,8 @@ export const renderGridVideo = async (data: GridTemplateData, onProgress: (p: nu
   }
 
   const mimeType = getMimeType();
-  const stream = canvas.captureStream(FPS);
-  // Поднимаем битрейт для более плавного grid-шаблона
+  const stream = canvas.captureStream(GRID_FPS);
+  // Поднимаем битрейт, но оставляем FPS 30, чтобы не было дропов
   const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12000000 }); // 12 Mbps
   const chunks: Blob[] = [];
   
@@ -505,7 +506,7 @@ export const renderNewsVideo = async (data: NewsTemplateData, onProgress: (p: nu
     }
   
     const mimeType = getMimeType();
-    const stream = canvas.captureStream(FPS);
+    const stream = canvas.captureStream(NEWS_FPS);
     const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8000000 }); // 8 Mbps high quality
     const chunks: Blob[] = [];
     

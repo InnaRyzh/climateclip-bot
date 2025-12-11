@@ -63,7 +63,9 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
   <script>
     const WIDTH = 1080;
     const HEIGHT = 1920;
-    const FPS = 60;
+    const FPS_GRID = 30; // менее ресурсоёмко, снижает дропы кадров
+    const FPS_NEWS = 60;
+    const FPS = options.template === 'grid' ? FPS_GRID : FPS_NEWS;
     
     // --- TIMING CONFIG ---
     const GRID_CONTENT_DURATION = 20; 
