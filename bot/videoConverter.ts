@@ -19,10 +19,10 @@ export async function convertWebmToMp4(inputPath: string, outputFileName?: strin
     ffmpeg(inputPath)
       .outputOptions([
         '-c:v libx264',     // Видео кодек H.264
-        '-crf 20',          // Высокое качество (18-20 = отличное, 23 = хорошее)
+        '-crf 16',          // Почти без сжатия (ниже — меньше компрессия)
         '-preset slow',     // Баланс скорости и качества
         '-vf scale=1080:1920,setsar=1:1', // Масштабирование
-        '-r 30',             // Принудительно 30 fps
+        '-r 60',             // Принудительно 60 fps
         '-vsync cfr',        // Постоянная частота кадров (лечит растягивание)
         '-aspect 9:16',      // Соотношение сторон
         '-c:a aac',         // Аудио кодек AAC

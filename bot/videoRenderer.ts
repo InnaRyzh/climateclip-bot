@@ -63,7 +63,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
   <script>
     const WIDTH = 1080;
     const HEIGHT = 1920;
-    const FPS = 30;
+    const FPS = 60;
     
     // --- TIMING CONFIG ---
     const GRID_CONTENT_DURATION = 20; 
@@ -437,9 +437,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const ctx = canvas.getContext('2d');
             const mimeType = getMimeType();
             
-            // Чуть снижаем битрейт для grid, чтобы уменьшить дергания
-            // Повышаем битрейт для лучшего качества
-            const bitRate = options.template === 'news' ? 9000000 : 6000000;
+            // Максимально высокий битрейт, чтобы минимизировать сжатие
+            const bitRate = options.template === 'news' ? 12000000 : 8000000;
             
             const stream = canvas.captureStream(FPS);
             
