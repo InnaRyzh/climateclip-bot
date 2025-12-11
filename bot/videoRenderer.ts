@@ -2,6 +2,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import puppeteer from 'puppeteer';
+import { spawn } from 'child_process';
+import ffmpegPath from 'ffmpeg-static';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +16,7 @@ interface RenderOptions {
   country?: string;
   tickers?: string[];
   ctaImageUrl?: string;
+  renderMode?: 'realtime' | 'snapshot';
 }
 
 // Копируем видео в доступную для браузера директорию
@@ -65,6 +68,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     const options = ${serializedOptions};
     const videoUrls = ${serializedVideoUrls};
     const uploadUrl = "${uploadUrl}";
+    const renderMode = options.renderMode || 'realtime';
 
     // Единое разрешение 1080x1920 для сохранения пропорций текста/элементов
     const WIDTH = 1080;
@@ -451,6 +455,106 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             canvas.style.height = HEIGHT + 'px';
             document.body.style.width = WIDTH + 'px';
             document.body.style.height = HEIGHT + 'px';
+
+            // Snapshot режим (детерминированный покадровый рендер) для Grid
+            if (renderMode === 'snapshot' && options.template === 'grid') {
+                // Подготовка: останавливаем звук и воспроизведение
+                videos.forEach(v => { v.pause(); v.currentTime = 0; v.muted = true; v.volume = 0; });
+
+                const waitSeekAll = (t) => Promise.all(videos.map(v => new Promise(resolve => {
+                    const onSeek = () => { v.removeEventListener('seeked', onSeek); resolve(true); };
+                    v.addEventListener('seeked', onSeek, { once: true });
+                    v.currentTime = Math.min(t, v.duration || t);
+                    if (v.readyState >= 2) {
+                        v.removeEventListener('seeked', onSeek);
+                        resolve(true);
+                    }
+                })));
+
+                const drawGridFrame = (elapsed) => {
+                    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+                    const isContentPhase = elapsed < GRID_CONTENT_DURATION;
+
+                    if (isContentPhase) {
+                        const midX = WIDTH / 2;
+                        const midY = HEIGHT / 2;
+                        const pos = [
+                            { x: 0, y: 0, w: midX, h: midY },
+                            { x: midX, y: 0, w: midX, h: midY },
+                            { x: 0, y: midY, w: midX, h: midY },
+                            { x: midX, y: midY, w: midX, h: midY },
+                        ];
+                        
+                        videos.forEach((v, i) => {
+                            if (i < 4) drawVideoCover(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
+                        });
+                        
+                        ctx.lineWidth = 8;
+                        ctx.strokeStyle = '#FF0000';
+                        ctx.beginPath();
+                        ctx.moveTo(0, midY); ctx.lineTo(WIDTH, midY);
+                        ctx.moveTo(midX, 0); ctx.lineTo(midX, HEIGHT);
+                        ctx.stroke();
+                        
+                        if (options.countries) {
+                            const labels = options.countries;
+                            ctx.font = '900 36px "Benzin-Bold", Arial'; 
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                            ctx.shadowBlur = 15;
+                            ctx.shadowOffsetX = 0;
+                            ctx.shadowOffsetY = 4;
+                            
+                            const drawCountryText = (text, x, y) => {
+                                if (!text) return;
+                                ctx.save();
+                                ctx.fillStyle = 'white';
+                                ctx.fillText(formatCountry(text), x, y);
+                                ctx.restore();
+                            };
+
+                            const textPadding = 120; 
+                            if (labels[0]) drawCountryText(labels[0], midX/2, midY - textPadding);
+                            if (labels[1]) drawCountryText(labels[1], midX + midX/2, midY - textPadding);
+                            if (labels[2]) drawCountryText(labels[2], midX/2, midY + textPadding);
+                            if (labels[3]) drawCountryText(labels[3], midX + midX/2, midY + textPadding);
+                        }
+                        
+                        if (options.date) {
+                            const stripH = 120; 
+                            ctx.fillStyle = '#FF0000';
+                            ctx.fillRect(0, midY - stripH/2, WIDTH, stripH);
+                            
+                            ctx.save();
+                            ctx.font = '900 65px "Benzin-Bold", Arial';
+                            ctx.fillStyle = 'white';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                            ctx.shadowBlur = 20;
+                            ctx.shadowOffsetY = 5;
+                            ctx.fillText(formatDate(options.date), midX, midY + 5);
+                            ctx.restore();
+                        }
+                    } else {
+                        const frameCount = Math.floor(elapsed * FPS);
+                        drawImageCTA(ctx, frameCount, ctaImage);
+                    }
+                };
+
+                window.renderFrameAt = async (t) => {
+                    await waitSeekAll(t);
+                    drawGridFrame(t);
+                    return true;
+                };
+
+                window.renderReady = true;
+                return;
+            }
             
             // Повышаем битрейт: grid 22 Мбит/с, news 14 Мбит/с
             const bitRate = options.template === 'news' ? 14000000 : 22000000;
@@ -858,6 +962,11 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
   
   try {
     console.log(`Starting render for template: ${options.template}, videos: ${options.videos.length}`);
+
+    // Для Grid по умолчанию используем детерминированный покадровый рендер
+    if (!options.renderMode) {
+      options.renderMode = options.template === 'grid' ? 'snapshot' : 'realtime';
+    }
     
     if (!options.ctaImageUrl) {
       const imagesDir = path.join(__dirname, 'assets', 'images');
@@ -921,7 +1030,66 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
     const htmlContent = await createRendererPage(options, browserVideoUrls, uploadUrl, serverPort);
     
     await page.setContent(htmlContent);
-    
+
+    // --- Snapshot режим для Grid: покадровый рендер с ffmpeg (image2pipe) ---
+    if (options.renderMode === 'snapshot' && options.template === 'grid') {
+      const fps = 30;
+      const totalDuration = 20 + 5; // GRID_CONTENT_DURATION + CTA_DURATION
+      const totalFrames = Math.round(totalDuration * fps);
+      const outputPath = path.join(__dirname, 'temp', `${videoId}.mp4`);
+
+      // Ждём готовности рендер-функции в браузере
+      await page.waitForFunction(() => {
+        // @ts-ignore
+        return window.renderReady === true || window.renderError !== undefined;
+      }, { timeout: 600000 });
+
+      const renderError = await page.evaluate(() => {
+        // @ts-ignore
+        return window.renderError;
+      });
+      if (renderError) throw new Error(`Browser error: ${renderError}`);
+
+      const ffmpegArgs = [
+        '-y',
+        '-f', 'image2pipe',
+        '-vcodec', 'mjpeg',
+        '-r', `${fps}`,
+        '-i', 'pipe:0',
+        '-c:v', 'libx264',
+        '-pix_fmt', 'yuv420p',
+        '-preset', 'slow',
+        '-crf', '16',
+        '-movflags', '+faststart',
+        outputPath
+      ];
+
+      const ff = spawn(ffmpegPath || 'ffmpeg', ffmpegArgs);
+
+      const ffmpegDone = new Promise<void>((resolve, reject) => {
+        ff.on('error', reject);
+        ff.on('close', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(`ffmpeg exited with code ${code}`));
+        });
+      });
+
+      for (let i = 0; i < totalFrames; i++) {
+        const t = i / fps;
+        await page.evaluate((time) => {
+          // @ts-ignore
+          return window.renderFrameAt(time);
+        }, t);
+        const buffer = await page.screenshot({ type: 'jpeg', quality: 90, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+        ff.stdin.write(buffer);
+      }
+
+      ff.stdin.end();
+      await ffmpegDone;
+      return outputPath;
+    }
+
+    // --- Реал-тайм режим (MediaRecorder) ---
     console.log('Waiting for render/upload...');
     try {
       await page.waitForFunction(() => {
