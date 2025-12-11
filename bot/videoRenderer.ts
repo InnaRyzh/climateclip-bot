@@ -452,8 +452,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             document.body.style.width = WIDTH + 'px';
             document.body.style.height = HEIGHT + 'px';
             
-            // Повышаем битрейт для grid (16 Мбит/с) и news (14 Мбит/с) для плавности
-            const bitRate = options.template === 'news' ? 14000000 : 16000000;
+            // Повышаем битрейт для grid (20 Мбит/с) и news (14 Мбит/с) для плавности
+            const bitRate = options.template === 'news' ? 14000000 : 20000000;
             
             const stream = canvas.captureStream(FPS);
             
@@ -513,17 +513,24 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             })) : [];
             let currentNewsVideoIndex = -1;
 
-            const useFixedInterval = options.template === 'grid'; // для grid фиксированный таймер уменьшает нагрузку и дропы кадров
-            let intervalId = null;
+            // Ограничиваем rAF по целевому FPS, чтобы избежать перепроизводства кадров
+            const targetFrameMs = 1000 / FPS;
+            let lastFrameTs = performance.now();
 
-            function loop() {
+            function loop(now) {
                 try {
+                    // Пропускаем кадр, если ещё не прошло targetFrameMs
+                    if (now - lastFrameTs < targetFrameMs - 1) {
+                        requestAnimationFrame(loop);
+                        return;
+                    }
+                    lastFrameTs = now;
+
                     const elapsed = (performance.now() - startTime) / 1000;
                     
                     if (elapsed >= totalDuration) {
                         recorder.stop();
                         videos.forEach(v => { v.pause(); v.src = ''; v.remove(); });
-                        if (useFixedInterval && intervalId) clearInterval(intervalId);
                         return;
                     }
 
@@ -825,21 +832,13 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                         drawImageCTA(ctx, frameCount, ctaImage);
                     }
                     frameCount++;
-                    if (!useFixedInterval) {
-                        requestAnimationFrame(loop);
-                    }
+                    requestAnimationFrame(loop);
                 } catch (e) {
                     recorder.stop();
-                    if (useFixedInterval && intervalId) clearInterval(intervalId);
                     window.renderError = 'Loop error: ' + e.message;
                 }
             }
-            if (useFixedInterval) {
-                const frameMs = 1000 / FPS;
-                intervalId = setInterval(loop, frameMs);
-            } else {
-                loop();
-            }
+            requestAnimationFrame(loop);
         } catch (e) {
             window.renderError = 'Setup error: ' + e.message;
         }
