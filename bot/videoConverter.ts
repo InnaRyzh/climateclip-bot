@@ -34,8 +34,10 @@ export async function convertWebmToMp4(
     ];
 
     if (fps && fps > 0) {
-      // Форсируем итоговый FPS, чтобы не было дублирования/дропа кадров
+      // Форсируем итоговый FPS и GOP для стабильного каденса (без B-frames)
       outputOpts.push(`-r ${fps}`);
+      outputOpts.push(`-g ${fps * 2}`);
+      outputOpts.push(`-bf 0`);
     }
 
     ffmpeg(inputPath)

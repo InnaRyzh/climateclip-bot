@@ -452,8 +452,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             document.body.style.width = WIDTH + 'px';
             document.body.style.height = HEIGHT + 'px';
             
-            // Повышаем битрейт для grid (20 Мбит/с) и news (14 Мбит/с) для плавности
-            const bitRate = options.template === 'news' ? 14000000 : 20000000;
+            // Повышаем битрейт: grid 22 Мбит/с, news 14 Мбит/с
+            const bitRate = options.template === 'news' ? 14000000 : 22000000;
             
             const stream = canvas.captureStream(FPS);
             
@@ -557,7 +557,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                                 if (i < 4) drawVideoCover(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
                             });
                             
-                            ctx.lineWidth = 15;
+                            // Уменьшаем толщину линий, чтобы снизить нагрузку на рендер
+                            ctx.lineWidth = 8;
                             ctx.strokeStyle = '#FF0000';
                             ctx.beginPath();
                             ctx.moveTo(0, midY); ctx.lineTo(WIDTH, midY);
