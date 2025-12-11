@@ -330,9 +330,9 @@ async function processGridTemplate(chatId: number, state: UserState) {
     
     await validateVideoFiles(videoPaths);
 
-    // Обрезаем и нормализуем каждое видео до 6 секунд, принудительно перекодируем в 720x1280 30 FPS CFR для плавного рендера grid
+    // Обрезаем и нормализуем каждое видео до 6 секунд, принудительно перекодируем в 960x540 30 FPS CFR для плавного рендера grid
     for (const p of videoPaths) {
-      const trimmed = await trimVideoToDuration(p, 6, 30, true, 720, 1280);
+      const trimmed = await trimVideoToDuration(p, 6, 30, true, 960, 540);
       trimmedPaths.push(trimmed);
     }
     
