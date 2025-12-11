@@ -462,9 +462,16 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                 videos.forEach(v => { v.pause(); v.currentTime = 0; v.muted = true; v.volume = 0; });
 
                 const waitSeekAll = (t) => Promise.all(videos.map(v => new Promise(resolve => {
+                    const dur = (v.duration && isFinite(v.duration)) ? v.duration : 0;
+                    // Если времени больше длительности — не ждём seeked, оставляем на последнем кадре
+                    if (dur && t >= dur - 0.01) {
+                        v.currentTime = dur - 0.001;
+                        resolve(true);
+                        return;
+                    }
                     const onSeek = () => { v.removeEventListener('seeked', onSeek); resolve(true); };
                     v.addEventListener('seeked', onSeek, { once: true });
-                    v.currentTime = Math.min(t, v.duration || t);
+                    v.currentTime = Math.min(t, dur || t);
                     if (v.readyState >= 2) {
                         v.removeEventListener('seeked', onSeek);
                         resolve(true);
