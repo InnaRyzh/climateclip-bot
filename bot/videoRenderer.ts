@@ -63,6 +63,11 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
   <script>
     const WIDTH = 1080;
     const HEIGHT = 1920;
+    
+    const options = ${serializedOptions};
+    const videoUrls = ${serializedVideoUrls};
+    const uploadUrl = "${uploadUrl}";
+    
     const FPS_GRID = 30; // менее ресурсоёмко, снижает дропы кадров
     const FPS_NEWS = 60;
     const FPS = options.template === 'grid' ? FPS_GRID : FPS_NEWS;
@@ -81,10 +86,6 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     // На 3 блока: 26 / 3 = 8.67 сек каждый
     const NEWS_TICKER_DURATION = (NEWS_CLIP_COUNT * NEWS_CLIP_DURATION + CTA_DURATION - NEWS_HEADER_DURATION - CTA_DURATION) / NEWS_TICKER_COUNT;
     const NEWS_CONTENT_DURATION = NEWS_HEADER_DURATION + NEWS_TICKER_DURATION * NEWS_TICKER_COUNT; // 4 + 26 = 30 сек 
-    
-    const options = ${serializedOptions};
-    const videoUrls = ${serializedVideoUrls};
-    const uploadUrl = "${uploadUrl}";
     
     window.videosLoaded = false;
     window.uploadComplete = false;
