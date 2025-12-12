@@ -510,28 +510,28 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                     // Устанавливаем время сразу
                     v.currentTime = targetTime;
 
-                    // Оптимизированный polling: проверяем чаще, но с меньшим таймаутом
+                    // Максимально агрессивный polling: минимум ожидания
                     let attempts = 0;
-                    const maxAttempts = 20; // 20 * 20ms = 400ms максимум (быстрее!)
+                    const maxAttempts = 10; // 10 * 10ms = 100ms максимум (очень быстро!)
                     
                     const checkReady = () => {
                         attempts++;
                         const nowDiff = Math.abs(v.currentTime - targetTime);
                         
-                        // Если время установлено и кадр готов (увеличиваем допуск для скорости)
-                        if (nowDiff < 0.15 && v.readyState >= 2) {
+                        // Если время установлено и кадр готов (большой допуск для скорости)
+                        if (nowDiff < 0.2 && v.readyState >= 2) {
                             resolve(true);
                             return;
                         }
                         
-                        // Если превысили лимит попыток, продолжаем всё равно (не блокируем рендер)
+                        // Если превысили лимит попыток, продолжаем сразу (не ждём)
                         if (attempts >= maxAttempts) {
                             resolve(true);
                             return;
                         }
                         
-                        // Более частые проверки (20ms вместо 50ms) для быстрого обнаружения готовности
-                        setTimeout(checkReady, 20);
+                        // Очень частые проверки (10ms) для максимальной скорости
+                        setTimeout(checkReady, 10);
                     };
                     
                     // Начинаем проверку сразу
@@ -1069,15 +1069,18 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
     }
 
     browser = await puppeteer.launch({
-      headless: true,
+      headless: "new", // Новый режим быстрее и стабильнее
       executablePath,
       pipe: true,
       args: [
         '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
         '--disable-extensions', '--no-first-run', '--no-zygote',
         '--disable-web-security', '--autoplay-policy=no-user-gesture-required',
-        '--enable-gpu-rasterization', '--enable-zero-copy',
-        '--disable-frame-rate-limit', '--disable-gpu-vsync'
+        '--disable-gpu', // Отключаем GPU для ускорения в headless
+        '--disable-software-rasterizer',
+        '--disable-frame-rate-limit', '--disable-gpu-vsync',
+        '--disable-background-networking', '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'
       ],
     });
 
@@ -1125,8 +1128,8 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
         '-i', 'pipe:0',
         '-c:v', 'libx264',
         '-pix_fmt', 'yuv420p',
-        '-preset', 'medium', // Быстрее чем 'slow', но всё ещё хорошее качество
-        '-crf', '18', // Немного выше для ускорения (18 vs 16 - визуально почти незаметно)
+        '-preset', 'fast', // Быстрее для ускорения рендеринга
+        '-crf', '20', // Немного выше для ускорения (приемлемое качество)
         '-r', `${fps}`,
         '-g', `${fps * 2}`,
         '-bf', '0',
@@ -1195,8 +1198,8 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
           const evalTime = Date.now() - evalStart;
           
           const screenshotStart = Date.now();
-          // Снижаем quality для ускорения (75 вместо 90 - визуально почти незаметно, но быстрее)
-          const buffer = await page.screenshot({ type: 'jpeg', quality: 75, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+          // Агрессивно снижаем quality для максимального ускорения (60 - приемлемое качество, но намного быстрее)
+          const buffer = await page.screenshot({ type: 'jpeg', quality: 60, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
           const screenshotTime = Date.now() - screenshotStart;
           
           // Проверяем, что FFmpeg не завершился с ошибкой
