@@ -510,29 +510,28 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                     // Устанавливаем время сразу
                     v.currentTime = targetTime;
 
-                    // Ждём готовности кадра через polling (более надёжно, чем seeked)
+                    // Оптимизированный polling: проверяем чаще, но с меньшим таймаутом
                     let attempts = 0;
-                    const maxAttempts = 50; // 50 * 50ms = 2.5 секунды максимум
+                    const maxAttempts = 20; // 20 * 20ms = 400ms максимум (быстрее!)
                     
                     const checkReady = () => {
                         attempts++;
                         const nowDiff = Math.abs(v.currentTime - targetTime);
                         
-                        // Если время установлено и кадр готов
-                        if (nowDiff < 0.1 && v.readyState >= 2) {
+                        // Если время установлено и кадр готов (увеличиваем допуск для скорости)
+                        if (nowDiff < 0.15 && v.readyState >= 2) {
                             resolve(true);
                             return;
                         }
                         
-                        // Если превысили лимит попыток, продолжаем всё равно
+                        // Если превысили лимит попыток, продолжаем всё равно (не блокируем рендер)
                         if (attempts >= maxAttempts) {
-                            console.warn(\`Seek timeout after \${attempts} attempts at \${targetTime.toFixed(3)}s (current: \${v.currentTime.toFixed(3)}s)\`);
                             resolve(true);
                             return;
                         }
                         
-                        // Повторяем попытку через 50ms
-                        setTimeout(checkReady, 50);
+                        // Более частые проверки (20ms вместо 50ms) для быстрого обнаружения готовности
+                        setTimeout(checkReady, 20);
                     };
                     
                     // Начинаем проверку сразу
@@ -1126,8 +1125,8 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
         '-i', 'pipe:0',
         '-c:v', 'libx264',
         '-pix_fmt', 'yuv420p',
-        '-preset', 'slow',
-        '-crf', '16',
+        '-preset', 'medium', // Быстрее чем 'slow', но всё ещё хорошее качество
+        '-crf', '18', // Немного выше для ускорения (18 vs 16 - визуально почти незаметно)
         '-r', `${fps}`,
         '-g', `${fps * 2}`,
         '-bf', '0',
@@ -1140,42 +1139,82 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
 
       const ff = spawn(ffmpegPath || 'ffmpeg', ffmpegArgs);
 
+      // Логируем ошибки FFmpeg для диагностики
+      let ffmpegStderr = '';
+      ff.stderr.on('data', (data) => {
+        const text = data.toString();
+        ffmpegStderr += text;
+        // Логируем только важные сообщения (не все frame=...)
+        if (text.includes('error') || text.includes('Error') || text.includes('failed')) {
+          console.error(`[FFmpeg] ${text.trim()}`);
+        }
+      });
+
       const ffmpegDone = new Promise<void>((resolve, reject) => {
-        ff.on('error', reject);
+        ff.on('error', (err) => {
+          console.error('[FFmpeg] Process error:', err);
+          reject(err);
+        });
         ff.on('close', (code) => {
-          if (code === 0) resolve();
-          else reject(new Error(`ffmpeg exited with code ${code}`));
+          if (code === 0) {
+            console.log('[FFmpeg] Encoding completed successfully');
+            resolve();
+          } else {
+            console.error(`[FFmpeg] Exited with code ${code}`);
+            console.error(`[FFmpeg] stderr: ${ffmpegStderr.slice(-500)}`); // Последние 500 символов
+            reject(new Error(`ffmpeg exited with code ${code}`));
+          }
         });
       });
 
       console.log(`Rendering ${totalFrames} frames (${totalDuration}s @ ${fps} FPS)...`);
       const logInterval = Math.max(1, Math.floor(totalFrames / 20)); // Логируем каждые 5%
+      const renderStartTime = Date.now();
+      let lastLogTime = renderStartTime;
       
       for (let i = 0; i < totalFrames; i++) {
+        const frameStartTime = Date.now();
         const t = i / fps;
         
-        // Логируем прогресс
+        // Логируем прогресс с информацией о скорости
         if (i % logInterval === 0 || i === totalFrames - 1) {
           const progress = ((i + 1) / totalFrames * 100).toFixed(1);
-          console.log(`Frame ${i + 1}/${totalFrames} (${progress}%) - time: ${t.toFixed(2)}s`);
+          const elapsed = (Date.now() - renderStartTime) / 1000;
+          const avgFps = (i + 1) / elapsed;
+          const recentFps = logInterval / ((Date.now() - lastLogTime) / 1000);
+          console.log(`Frame ${i + 1}/${totalFrames} (${progress}%) - time: ${t.toFixed(2)}s | avg: ${avgFps.toFixed(1)} fps | recent: ${recentFps.toFixed(1)} fps`);
+          lastLogTime = Date.now();
         }
         
         try {
+          const evalStart = Date.now();
           await page.evaluate((time) => {
             // @ts-ignore
             return window.renderFrameAt(time);
           }, t);
+          const evalTime = Date.now() - evalStart;
           
-          const buffer = await page.screenshot({ type: 'jpeg', quality: 90, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+          const screenshotStart = Date.now();
+          // Снижаем quality для ускорения (75 вместо 90 - визуально почти незаметно, но быстрее)
+          const buffer = await page.screenshot({ type: 'jpeg', quality: 75, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+          const screenshotTime = Date.now() - screenshotStart;
           
           // Проверяем, что FFmpeg не завершился с ошибкой
           if (ff.stdin.destroyed || ff.killed) {
             throw new Error('FFmpeg process terminated unexpectedly');
           }
           
+          const writeStart = Date.now();
           if (!ff.stdin.write(buffer)) {
             // Буфер переполнен, ждём drain
             await new Promise(resolve => ff.stdin.once('drain', resolve));
+          }
+          const writeTime = Date.now() - writeStart;
+          
+          // Логируем медленные кадры для диагностики
+          const frameTime = Date.now() - frameStartTime;
+          if (frameTime > 500) {
+            console.warn(`Slow frame ${i + 1}: eval=${evalTime}ms, screenshot=${screenshotTime}ms, write=${writeTime}ms, total=${frameTime}ms`);
           }
         } catch (error: any) {
           console.error(`Error at frame ${i + 1} (time ${t.toFixed(2)}s):`, error.message);
