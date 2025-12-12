@@ -199,27 +199,6 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
       ctx.drawImage(video, sx, sy, sw, sh, x, y, w, h);
     };
 
-    // Сохранение пропорций без обрезки (letterbox), чтобы не растягивать кадр в сетке
-    const drawVideoContain = (ctx, video, x, y, w, h) => {
-      if (video.videoWidth === 0) return;
-      const videoRatio = video.videoWidth / video.videoHeight;
-      const targetRatio = w / h;
-
-      let drawW, drawH;
-      if (videoRatio > targetRatio) {
-        // Видео шире, чем слот — ограничиваем по ширине слота, высоту считаем по пропорции
-        drawW = w;
-        drawH = w / videoRatio;
-      } else {
-        // Видео выше — ограничиваем по высоте слота
-        drawH = h;
-        drawW = h * videoRatio;
-      }
-
-      const dx = x + (w - drawW) / 2;
-      const dy = y + (h - drawH) / 2;
-      ctx.drawImage(video, dx, dy, drawW, drawH);
-    };
 
     const getLines = (ctx, text, maxWidth) => {
         const words = text.split(" ");
@@ -491,17 +470,42 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
 
                 const waitSeekAll = (t) => Promise.all(videos.map(v => new Promise(resolve => {
                     const dur = (v.duration && isFinite(v.duration)) ? v.duration : 0;
-                    // Если времени больше длительности — не ждём seeked, оставляем на последнем кадре
+                    const targetTime = dur ? Math.min(t, dur) : t;
+
+                    // Если времени больше длительности — берём последний почти-кадр
                     if (dur && t >= dur - 0.01) {
-                        v.currentTime = dur - 0.001;
-                        resolve(true);
-                        return;
+                        v.currentTime = Math.max(dur - 0.001, 0);
+                        return resolve(true);
                     }
-                    const onSeek = () => { v.removeEventListener('seeked', onSeek); resolve(true); };
-                    v.addEventListener('seeked', onSeek, { once: true });
-                    v.currentTime = Math.min(t, dur || t);
-                    if (v.readyState >= 2) {
+
+                    // Быстрый путь: уже на месте и кадр готов
+                    if (Math.abs(v.currentTime - targetTime) < 0.05 && v.readyState >= 2) {
+                        return resolve(true);
+                    }
+
+                    const onSeek = () => {
+                        cleanup();
+                        resolve(true);
+                    };
+
+                    // Страховка: если seeked не приходит за 2 секунды — идём дальше
+                    const timeout = setTimeout(() => {
+                        console.warn(\`Seek timeout at \${targetTime.toFixed(3)}s\`);
+                        cleanup();
+                        resolve(true);
+                    }, 2000);
+
+                    const cleanup = () => {
                         v.removeEventListener('seeked', onSeek);
+                        clearTimeout(timeout);
+                    };
+
+                    v.addEventListener('seeked', onSeek, { once: true });
+                    v.currentTime = targetTime;
+
+                    // Если кадр уже прогружен
+                    if (v.readyState >= 2 && Math.abs(v.currentTime - targetTime) < 0.05) {
+                        cleanup();
                         resolve(true);
                     }
                 })));
@@ -524,7 +528,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                         ];
                         
                         videos.forEach((v, i) => {
-                            if (i < 4) drawVideoContain(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
+                            if (i < 4) drawVideoCover(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
                         });
                         
                         ctx.lineWidth = 8;
@@ -693,7 +697,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                             ];
                             
                             videos.forEach((v, i) => {
-                                if (i < 4) drawVideoContain(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
+                                if (i < 4) drawVideoCover(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
                             });
                             
                             // Уменьшаем толщину линий, чтобы снизить нагрузку на рендер
