@@ -180,23 +180,45 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     };
 
     const drawVideoCover = (ctx, video, x, y, w, h) => {
-      if (video.videoWidth === 0) return;
+      if (video.videoWidth === 0 || video.videoHeight === 0) return;
+      
       const videoRatio = video.videoWidth / video.videoHeight;
       const targetRatio = w / h;
+      
       let sx, sy, sw, sh;
+      let dx, dy, dw, dh;
 
+      // COVER режим: заполняем весь слот, обрезая лишнее
       if (videoRatio > targetRatio) {
+        // Видео шире слота - обрезаем по бокам
         sh = video.videoHeight;
         sw = sh * targetRatio;
         sy = 0;
         sx = (video.videoWidth - sw) / 2;
+        // Рисуем в полный размер слота
+        dx = x;
+        dy = y;
+        dw = w;
+        dh = h;
       } else {
+        // Видео выше слота - обрезаем сверху/снизу
         sw = video.videoWidth;
         sh = sw / targetRatio;
         sx = 0;
         sy = (video.videoHeight - sh) / 2;
+        // Рисуем в полный размер слота
+        dx = x;
+        dy = y;
+        dw = w;
+        dh = h;
       }
-      ctx.drawImage(video, sx, sy, sw, sh, x, y, w, h);
+      
+      // Очищаем область слота черным (на случай, если видео меньше)
+      ctx.fillStyle = 'black';
+      ctx.fillRect(x, y, w, h);
+      
+      // Рисуем видео с правильным соотношением сторон (без растяжения)
+      ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh);
     };
 
 
@@ -470,11 +492,12 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
 
                 const waitSeekAll = (t) => Promise.all(videos.map(v => new Promise(resolve => {
                     const dur = (v.duration && isFinite(v.duration)) ? v.duration : 0;
-                    const targetTime = dur ? Math.min(t, dur) : t;
+                    // ЗАЦИКЛИВАЕМ видео: если t > dur, используем остаток от деления
+                    const targetTime = dur > 0 ? (t % dur) : t;
 
-                    // Если времени больше длительности — берём последний почти-кадр
-                    if (dur && t >= dur - 0.01) {
-                        v.currentTime = Math.max(dur - 0.001, 0);
+                    // Если видео очень короткое (< 0.1 сек), просто ставим на 0
+                    if (dur < 0.1) {
+                        v.currentTime = 0;
                         return resolve(true);
                     }
 
