@@ -502,35 +502,41 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                     }
 
                     // Быстрый путь: уже на месте и кадр готов
-                    if (Math.abs(v.currentTime - targetTime) < 0.05 && v.readyState >= 2) {
+                    const currentDiff = Math.abs(v.currentTime - targetTime);
+                    if (currentDiff < 0.05 && v.readyState >= 2) {
                         return resolve(true);
                     }
 
-                    const onSeek = () => {
-                        cleanup();
-                        resolve(true);
-                    };
-
-                    // Страховка: если seeked не приходит за 2 секунды — идём дальше
-                    const timeout = setTimeout(() => {
-                        console.warn(\`Seek timeout at \${targetTime.toFixed(3)}s\`);
-                        cleanup();
-                        resolve(true);
-                    }, 2000);
-
-                    const cleanup = () => {
-                        v.removeEventListener('seeked', onSeek);
-                        clearTimeout(timeout);
-                    };
-
-                    v.addEventListener('seeked', onSeek, { once: true });
+                    // Устанавливаем время сразу
                     v.currentTime = targetTime;
 
-                    // Если кадр уже прогружен
-                    if (v.readyState >= 2 && Math.abs(v.currentTime - targetTime) < 0.05) {
-                        cleanup();
-                        resolve(true);
-                    }
+                    // Ждём готовности кадра через polling (более надёжно, чем seeked)
+                    let attempts = 0;
+                    const maxAttempts = 50; // 50 * 50ms = 2.5 секунды максимум
+                    
+                    const checkReady = () => {
+                        attempts++;
+                        const nowDiff = Math.abs(v.currentTime - targetTime);
+                        
+                        // Если время установлено и кадр готов
+                        if (nowDiff < 0.1 && v.readyState >= 2) {
+                            resolve(true);
+                            return;
+                        }
+                        
+                        // Если превысили лимит попыток, продолжаем всё равно
+                        if (attempts >= maxAttempts) {
+                            console.warn(\`Seek timeout after \${attempts} attempts at \${targetTime.toFixed(3)}s (current: \${v.currentTime.toFixed(3)}s)\`);
+                            resolve(true);
+                            return;
+                        }
+                        
+                        // Повторяем попытку через 50ms
+                        setTimeout(checkReady, 50);
+                    };
+                    
+                    // Начинаем проверку сразу
+                    checkReady();
                 })));
 
                 const drawGridFrame = (elapsed) => {
@@ -1142,14 +1148,39 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
         });
       });
 
+      console.log(`Rendering ${totalFrames} frames (${totalDuration}s @ ${fps} FPS)...`);
+      const logInterval = Math.max(1, Math.floor(totalFrames / 20)); // Логируем каждые 5%
+      
       for (let i = 0; i < totalFrames; i++) {
         const t = i / fps;
-        await page.evaluate((time) => {
-          // @ts-ignore
-          return window.renderFrameAt(time);
-        }, t);
-        const buffer = await page.screenshot({ type: 'jpeg', quality: 90, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
-        ff.stdin.write(buffer);
+        
+        // Логируем прогресс
+        if (i % logInterval === 0 || i === totalFrames - 1) {
+          const progress = ((i + 1) / totalFrames * 100).toFixed(1);
+          console.log(`Frame ${i + 1}/${totalFrames} (${progress}%) - time: ${t.toFixed(2)}s`);
+        }
+        
+        try {
+          await page.evaluate((time) => {
+            // @ts-ignore
+            return window.renderFrameAt(time);
+          }, t);
+          
+          const buffer = await page.screenshot({ type: 'jpeg', quality: 90, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+          
+          // Проверяем, что FFmpeg не завершился с ошибкой
+          if (ff.stdin.destroyed || ff.killed) {
+            throw new Error('FFmpeg process terminated unexpectedly');
+          }
+          
+          if (!ff.stdin.write(buffer)) {
+            // Буфер переполнен, ждём drain
+            await new Promise(resolve => ff.stdin.once('drain', resolve));
+          }
+        } catch (error: any) {
+          console.error(`Error at frame ${i + 1} (time ${t.toFixed(2)}s):`, error.message);
+          throw new Error(`Rendering failed at frame ${i + 1}: ${error.message}`);
+        }
       }
 
       ff.stdin.end();
