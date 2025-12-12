@@ -330,11 +330,9 @@ async function processGridTemplate(chatId: number, state: UserState) {
     
     await validateVideoFiles(videoPaths);
 
-    // Обрезаем и нормализуем каждое видео до 6 секунд, принудительно перекодируем в 960x540 30 FPS CFR для плавного рендера grid
-    for (const p of videoPaths) {
-      const trimmed = await trimVideoToDuration(p, 6, 30, true, 960, 540);
-      trimmedPaths.push(trimmed);
-    }
+    // Для grid НЕ обрезаем видео - они играются полностью (20 секунд контента)
+    // Используем исходные видео без обрезки
+    trimmedPaths.push(...videoPaths);
     
     await bot.sendMessage(chatId, '🎬 Рендерю...');
     const webmPath = await renderVideo({
@@ -362,7 +360,9 @@ async function processGridTemplate(chatId: number, state: UserState) {
     
     await bot.sendVideo(chatId, mp4Path);
     
-    await cleanupFiles([...videoPaths, ...trimmedPaths, webmPath, mp4Path]);
+    // Для grid trimmedPaths = videoPaths, поэтому убираем дубликаты
+    const filesToCleanup = [...new Set([...videoPaths, ...trimmedPaths, webmPath, mp4Path])];
+    await cleanupFiles(filesToCleanup);
     userStates.delete(chatId);
     console.log(`Grid done in ${(Date.now() - started) / 1000}s`);
     
