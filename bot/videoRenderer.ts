@@ -199,6 +199,28 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
       ctx.drawImage(video, sx, sy, sw, sh, x, y, w, h);
     };
 
+    // Сохранение пропорций без обрезки (letterbox), чтобы не растягивать кадр в сетке
+    const drawVideoContain = (ctx, video, x, y, w, h) => {
+      if (video.videoWidth === 0) return;
+      const videoRatio = video.videoWidth / video.videoHeight;
+      const targetRatio = w / h;
+
+      let drawW, drawH;
+      if (videoRatio > targetRatio) {
+        // Видео шире, чем слот — ограничиваем по ширине слота, высоту считаем по пропорции
+        drawW = w;
+        drawH = w / videoRatio;
+      } else {
+        // Видео выше — ограничиваем по высоте слота
+        drawH = h;
+        drawW = h * videoRatio;
+      }
+
+      const dx = x + (w - drawW) / 2;
+      const dy = y + (h - drawH) / 2;
+      ctx.drawImage(video, dx, dy, drawW, drawH);
+    };
+
     const getLines = (ctx, text, maxWidth) => {
         const words = text.split(" ");
         const lines = [];
@@ -502,7 +524,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                         ];
                         
                         videos.forEach((v, i) => {
-                            if (i < 4) drawVideoCover(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
+                            if (i < 4) drawVideoContain(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
                         });
                         
                         ctx.lineWidth = 8;
@@ -671,7 +693,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                             ];
                             
                             videos.forEach((v, i) => {
-                                if (i < 4) drawVideoCover(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
+                                if (i < 4) drawVideoContain(ctx, v, pos[i].x, pos[i].y, pos[i].w, pos[i].h);
                             });
                             
                             // Уменьшаем толщину линий, чтобы снизить нагрузку на рендер
@@ -1073,6 +1095,10 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
         '-pix_fmt', 'yuv420p',
         '-preset', 'slow',
         '-crf', '16',
+        '-r', `${fps}`,
+        '-g', `${fps * 2}`,
+        '-bf', '0',
+        '-vsync', '1',
         // Гарантируем 9:16 без растяжения
         '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2',
         '-movflags', '+faststart',
