@@ -6,7 +6,8 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const HAS_PERPLEXITY = Boolean(PERPLEXITY_API_KEY);
 const HAS_OPENAI = Boolean(OPENAI_API_KEY);
 // Переменная для выбора провайдера: 'openai', 'perplexity', или 'both' (для сравнения)
-const AI_PROVIDER = process.env.AI_PROVIDER || 'both';
+// По умолчанию: OpenAI если доступен, иначе Perplexity
+const AI_PROVIDER = process.env.AI_PROVIDER || (HAS_OPENAI ? 'openai' : 'perplexity');
 
 const FETCH_TIMEOUT_MS = 6000;
 const MAX_AI_WORDS = 26;
