@@ -48,7 +48,7 @@ export async function generateSpeech(text: string, outputPath: string): Promise<
       input: text.trim(),
       voice: OPENAI_VOICE,
       response_format: 'mp3', // OpenAI возвращает mp3
-      speed: 0.95 // Немного замедленная скорость для спокойной, разборчивой начитки (0.25 - 4.0)
+      speed: 1.0 // Нормальная скорость речи (0.25 - 4.0)
     })
   });
 
