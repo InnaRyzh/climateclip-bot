@@ -7,8 +7,9 @@ import ffmpegPath from 'ffmpeg-static';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ВАЖНО: Для продакшена лучше использовать .env файл вместо хардкода ключа
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_21063f878af4de8c019adf9fa56b22ef1ba0e115f74017c6';
+// ВАЖНО: API ключ должен быть установлен через переменную окружения ELEVENLABS_API_KEY
+// Ключ должен иметь разрешение "Text to Speech" в настройках ElevenLabs
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'txnCCHHGKmYIwrn7HfHQ'; // Пользовательский голос для новостей
 
 interface AudioSegment {
@@ -23,7 +24,7 @@ interface AudioSegment {
  */
 export async function generateSpeech(text: string, outputPath: string): Promise<void> {
   if (!ELEVENLABS_API_KEY) {
-    throw new Error('ELEVENLABS_API_KEY не найден в .env');
+    throw new Error('ELEVENLABS_API_KEY не найден. Установите переменную окружения ELEVENLABS_API_KEY с ключом, у которого есть разрешение "Text to Speech".');
   }
 
   if (!text || text.trim().length === 0) {
