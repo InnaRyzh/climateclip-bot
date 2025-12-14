@@ -5,6 +5,8 @@ const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const HAS_PERPLEXITY = Boolean(PERPLEXITY_API_KEY);
 const HAS_OPENAI = Boolean(OPENAI_API_KEY);
+// Переменная для выбора провайдера: 'openai', 'perplexity', или 'both' (для сравнения)
+const AI_PROVIDER = process.env.AI_PROVIDER || 'both';
 
 const FETCH_TIMEOUT_MS = 6000;
 const MAX_AI_WORDS = 26;
@@ -223,8 +225,61 @@ export async function rewriteNewsText(text: string): Promise<string[]> {
   const cleanText = text.replace(/\s+/g, ' ').trim();
   if (!cleanText) return ['', '', ''];
 
-  // Сначала пробуем OpenAI (если доступен) - обычно лучше качество
-  if (HAS_OPENAI) {
+  // Режим сравнения: пробуем оба и логируем результаты
+  if (AI_PROVIDER === 'both' && HAS_OPENAI && HAS_PERPLEXITY) {
+    console.log('[AI Comparison] Тестирую оба провайдера...');
+    
+    const [openaiResult, perplexityResult] = await Promise.allSettled([
+      tryOpenAI(cleanText),
+      tryPerplexity(cleanText)
+    ]);
+
+    if (openaiResult.status === 'fulfilled' && openaiResult.value && openaiResult.value.length === 3) {
+      const lens = openaiResult.value.map(p => p.split(' ').filter(Boolean).length);
+      console.log('=== OpenAI результат ===');
+      openaiResult.value.forEach((t, i) => console.log(`${i + 1}. [${lens[i]} слов] ${t}`));
+    } else {
+      console.log('=== OpenAI: ошибка ===', openaiResult.status === 'rejected' ? openaiResult.reason : 'неверный формат');
+    }
+
+    if (perplexityResult.status === 'fulfilled' && perplexityResult.value && perplexityResult.value.length === 3) {
+      const lens = perplexityResult.value.map(p => p.split(' ').filter(Boolean).length);
+      console.log('=== Perplexity результат ===');
+      perplexityResult.value.forEach((t, i) => console.log(`${i + 1}. [${lens[i]} слов] ${t}`));
+    } else {
+      console.log('=== Perplexity: ошибка ===', perplexityResult.status === 'rejected' ? perplexityResult.reason : 'неверный формат');
+    }
+
+    // Возвращаем результат OpenAI (приоритет)
+    if (openaiResult.status === 'fulfilled' && openaiResult.value && openaiResult.value.length === 3) {
+      return openaiResult.value.map(normalizeBlock);
+    }
+    if (perplexityResult.status === 'fulfilled' && perplexityResult.value && perplexityResult.value.length === 3) {
+      return perplexityResult.value.map(normalizeBlock);
+    }
+  }
+
+  // Режим выбора провайдера
+  if (AI_PROVIDER === 'openai' && HAS_OPENAI) {
+    const openaiResult = await tryOpenAI(cleanText);
+    if (openaiResult && openaiResult.length === 3) {
+      const lens = openaiResult.map(p => p.split(' ').filter(Boolean).length);
+      console.log('OpenAI success, lengths:', lens);
+      return openaiResult.map(normalizeBlock);
+    }
+  }
+
+  if (AI_PROVIDER === 'perplexity' || (AI_PROVIDER === 'openai' && !HAS_OPENAI)) {
+    const perplexityResult = await tryPerplexity(cleanText);
+    if (perplexityResult && perplexityResult.length === 3) {
+      const lens = perplexityResult.map(p => p.split(' ').filter(Boolean).length);
+      console.log('Perplexity success, lengths:', lens);
+      return perplexityResult.map(normalizeBlock);
+    }
+  }
+
+  // Автоматический выбор (по умолчанию): OpenAI → Perplexity
+  if (HAS_OPENAI && AI_PROVIDER !== 'perplexity') {
     const openaiResult = await tryOpenAI(cleanText);
     if (openaiResult && openaiResult.length === 3) {
       const lens = openaiResult.map(p => p.split(' ').filter(Boolean).length);
