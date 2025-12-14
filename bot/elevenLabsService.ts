@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 // ВАЖНО: API ключ должен быть установлен через переменную окружения OPENAI_API_KEY
 // Для продакшена на Railway установите переменную окружения OPENAI_API_KEY
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_VOICE = process.env.OPENAI_VOICE || 'echo'; // Голоса: alloy, echo, fable, onyx, nova, shimmer (echo - мужской, подходит для новостей)
+const OPENAI_VOICE = process.env.OPENAI_VOICE || 'onyx'; // Голоса: alloy, echo, fable, onyx, nova, shimmer (onyx - мужской, подходит для новостей)
 const OPENAI_MODEL = process.env.OPENAI_TTS_MODEL || 'tts-1-hd'; // tts-1 (быстро) или tts-1-hd (качественно)
 
 interface AudioSegment {
