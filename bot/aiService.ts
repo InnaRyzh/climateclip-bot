@@ -2,7 +2,9 @@ import { config } from 'dotenv';
 config();
 
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const HAS_PERPLEXITY = Boolean(PERPLEXITY_API_KEY);
+const HAS_OPENAI = Boolean(OPENAI_API_KEY);
 
 const FETCH_TIMEOUT_MS = 6000;
 const MAX_AI_WORDS = 26;
@@ -109,41 +111,24 @@ async function tryPerplexity(text: string): Promise<string[] | null> {
             messages: [
               {
                 role: 'system',
-          content: [
-            'Ты редактор новостной ленты. Твоя задача: взять исходный текст (это целостная сводка о событиях) и переписать его в РОВНО 3 слайда, выделив основные части.',
-            '',
-            'ПРАВИЛА РАБОТЫ С ТЕКСТОМ:',
-            '1. Исходный текст - это полная сводка: что произошло, где, когда. Ты НЕ добавляешь ничего своего.',
-            '2. Выдели из текста основные части/события и сделай краткое изложение (summary) смысла.',
-            '3. Сохрани ВСЕ факты: числа, даты, локации, названия, имена.',
-            '4. Сохрани хронологию событий - порядок должен быть логичным.',
-            '5. НЕ придумывай детали, которых нет в исходном тексте.',
-            '6. НЕ добавляй оценки, эмоции, метафоры - только факты.',
-            '',
-            'ТРЕБОВАНИЯ К КАЖДОМУ СЛАЙДУ:',
-            '- РОВНО 20-25 слов (строго соблюдай, допустимо 18-26 только если текст очень короткий)',
-            '- Полные предложения с законченной мыслью',
-            '- Логичная структура: каждый слайд - отдельная часть истории',
-            '- Хронологический порядок: первый слайд - начало событий, последний - завершение',
-            '- Конкретные названия вместо местоимений ("город Сиболга" вместо "он")',
-            '',
-            'РАСПРЕДЕЛЕНИЕ НА 3 СЛАЙДА:',
-            '- Слайд 1: начало событий, первая часть сводки (20-25 слов)',
-            '- Слайд 2: развитие событий, средняя часть сводки (20-25 слов)',
-            '- Слайд 3: завершение/итоги, финальная часть сводки (20-25 слов)',
-            '',
-            'ВАЖНО:',
-            '- НЕ переписывай текст произвольно - выделяй основные части из исходного текста',
-            '- НЕ добавляй информацию, которой нет в исходном тексте',
-            '- НЕ сокращай ключевые детали (даты, места, числа)',
-            '- Делай логичное summary основных моментов, сохраняя факты',
-            '',
-            'Верни ТОЛЬКО валидный JSON-массив из РОВНО трёх строк:',
-            '["первый слайд с началом событий", "второй слайд с развитием", "третий слайд с завершением"]',
-            'БЕЗ пояснений, БЕЗ форматирования Markdown, БЕЗ обратных кавычек, БЕЗ дополнительного текста.'
-          ].join('\n')
+                content: `Ты профессиональный редактор новостных тикеров. Переписывай исходный текст в РОВНО 3 коротких новостных заголовка для бегущей строки.
+
+ПРАВИЛА:
+1. Сохраняй ВСЕ факты: даты, места, числа, имена
+2. НЕ добавляй информацию, которой нет в исходном тексте
+3. НЕ добавляй эмоции, оценки, метафоры - только факты
+4. Каждый заголовок: 20-25 слов, законченная мысль
+5. Хронологический порядок: начало → развитие → итоги
+
+ФОРМАТ ОТВЕТА: Только JSON-массив из 3 строк, без пояснений:
+["первый заголовок", "второй заголовок", "третий заголовок"]
+
+ПРИМЕРЫ ХОРОШИХ ЗАГОЛОВКОВ:
+- "Масштабные наводнения охватывают запад штата Вашингтон, уровень воды в реке Снохомиш достиг критической отметки."
+- "Спасательные службы эвакуируют жителей из затопленных районов, закрыты основные автомагистрали."
+- "Метеорологи прогнозируют продолжение ливней, уровень воды может подняться ещё на 2 метра."`
               },
-              { role: 'user', content: text }
+              { role: 'user', content: `Перепиши этот текст в 3 новостных заголовка (20-25 слов каждый):\n\n${text}` }
             ]
           })
         });
@@ -173,11 +158,82 @@ async function tryPerplexity(text: string): Promise<string[] | null> {
   }
 }
 
+async function tryOpenAI(text: string): Promise<string[] | null> {
+  if (!HAS_OPENAI) {
+    return null;
+  }
+
+  try {
+    console.log('AI: OpenAI GPT call');
+    const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', // Быстрая и дешёвая модель
+        max_tokens: 400,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'system',
+            content: `Ты профессиональный редактор новостных тикеров. Переписывай исходный текст в РОВНО 3 коротких новостных заголовка для бегущей строки.
+
+ПРАВИЛА:
+1. Сохраняй ВСЕ факты: даты, места, числа, имена
+2. НЕ добавляй информацию, которой нет в исходном тексте
+3. НЕ добавляй эмоции, оценки, метафоры - только факты
+4. Каждый заголовок: 20-25 слов, законченная мысль
+5. Хронологический порядок: начало → развитие → итоги
+
+ФОРМАТ ОТВЕТА: Только JSON-массив из 3 строк, без пояснений:
+["первый заголовок", "второй заголовок", "третий заголовок"]`
+          },
+          {
+            role: 'user',
+            content: `Перепиши этот текст в 3 новостных заголовка (20-25 слов каждый):\n\n${text}`
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      console.error('OpenAI HTTP error', response.status, await response.text());
+      return null;
+    }
+
+    const data: any = await response.json();
+    const rawContent = data?.choices?.[0]?.message?.content?.trim();
+    console.log(`OpenAI raw content:`, rawContent?.slice(0, 200));
+
+    const parsedArr = tryParseArray(rawContent || '');
+    if (!parsedArr) return null;
+    
+    const normalized = parsedArr.map((s: string) => normalizeBlock(s));
+    return normalized;
+  } catch (err) {
+    console.error('OpenAI error', err);
+    return null;
+  }
+}
+
 export async function rewriteNewsText(text: string): Promise<string[]> {
   const cleanText = text.replace(/\s+/g, ' ').trim();
   if (!cleanText) return ['', '', ''];
 
-  // Пробуем Perplexity
+  // Сначала пробуем OpenAI (если доступен) - обычно лучше качество
+  if (HAS_OPENAI) {
+    const openaiResult = await tryOpenAI(cleanText);
+    if (openaiResult && openaiResult.length === 3) {
+      const lens = openaiResult.map(p => p.split(' ').filter(Boolean).length);
+      console.log('OpenAI success, lengths:', lens);
+      return openaiResult.map(normalizeBlock);
+    }
+  }
+
+  // Пробуем Perplexity (fallback)
   const ai = await tryPerplexity(cleanText);
   if (ai && ai.length === 3) {
     const lens = ai.map(p => p.split(' ').filter(Boolean).length);
