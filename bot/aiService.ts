@@ -279,7 +279,7 @@ export async function rewriteNewsText(text: string): Promise<string[]> {
     }
   }
 
-  // Автоматический выбор (по умолчанию): OpenAI → Perplexity
+  // Автоматический выбор (по умолчанию): только OpenAI
   if (HAS_OPENAI && AI_PROVIDER !== 'perplexity') {
     const openaiResult = await tryOpenAI(cleanText);
     if (openaiResult && openaiResult.length === 3) {
@@ -289,13 +289,8 @@ export async function rewriteNewsText(text: string): Promise<string[]> {
     }
   }
 
-  // Пробуем Perplexity (fallback)
-  const ai = await tryPerplexity(cleanText);
-  if (ai && ai.length === 3) {
-    const lens = ai.map(p => p.split(' ').filter(Boolean).length);
-    console.log('Perplexity success, lengths:', lens);
-    return ai.map(normalizeBlock);
-  }
+  // Perplexity отключен - используем только OpenAI или fallback
+  // Если OpenAI не сработал, переходим к алгоритмическому fallback
 
   // Надёжный алгоритмический фоллбек: равномерное деление в 3 части, целимся в ~23 слова
   const words = cleanText.split(' ').filter(Boolean);
