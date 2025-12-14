@@ -62,8 +62,8 @@ if (USE_LOCAL_API) {
 
 const botOptions: any = { 
   polling: {
-    interval: 1000, // Увеличиваем интервал до 1 секунды для снижения нагрузки
-    autoStart: true,
+    interval: 2000, // Увеличиваем интервал до 2 секунд для снижения нагрузки
+    autoStart: false, // Отключаем автозапуск, запустим вручную с задержкой
     params: {
       timeout: 30, // Увеличиваем timeout
       limit: 1, // Получаем по 1 обновлению за раз
@@ -157,22 +157,54 @@ bot.on('polling_error', async (error: any) => {
       }
       
       // Перезапускаем polling после задержки
+      const restartDelay = Math.max(retryAfter * 1000, 1000); // Минимум 1 секунда
       setTimeout(async () => {
-        if (Date.now() >= pollingPauseUntil) {
-          console.log('[Polling] Перезапускаю polling...');
+        const now = Date.now();
+        if (now >= pollingPauseUntil) {
+          console.log(`[Polling] Перезапускаю polling (прошло ${Math.floor((now - (pollingPauseUntil - retryAfter * 1000)) / 1000)} секунд)...`);
           isPollingPaused = false;
+          pollingPauseUntil = 0;
+          
+          // Небольшая дополнительная задержка перед перезапуском
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
           try {
             await bot.startPolling();
-            console.log('[Polling] Polling перезапущен');
-          } catch (e) {
+            console.log('[Polling] Polling успешно перезапущен');
+          } catch (e: any) {
             console.error('[Polling] Ошибка при перезапуске polling:', e);
-            // Повторяем попытку через минуту
-            setTimeout(() => {
-              bot.startPolling().catch(console.error);
-            }, 60000);
+            if (e.code === 'ETELEGRAM' && e.response?.statusCode === 429) {
+              // Если снова 429, повторяем процесс
+              const newRetryAfter = e.response?.body?.parameters?.retry_after || 60;
+              console.warn(`[Polling] Снова получен 429, жду ${newRetryAfter} секунд...`);
+              isPollingPaused = true;
+              pollingPauseUntil = Date.now() + (newRetryAfter * 1000);
+              setTimeout(async () => {
+                try {
+                  await bot.startPolling();
+                  isPollingPaused = false;
+                  console.log('[Polling] Polling перезапущен после повторной задержки');
+                } catch (err) {
+                  console.error('[Polling] Критическая ошибка при перезапуске:', err);
+                }
+              }, newRetryAfter * 1000);
+            } else {
+              // Для других ошибок повторяем попытку через минуту
+              setTimeout(async () => {
+                try {
+                  await bot.startPolling();
+                  isPollingPaused = false;
+                  console.log('[Polling] Polling перезапущен после ошибки');
+                } catch (err) {
+                  console.error('[Polling] Ошибка при повторном перезапуске:', err);
+                }
+              }, 60000);
+            }
           }
+        } else {
+          console.warn(`[Polling] Ещё рано перезапускать (осталось ${Math.floor((pollingPauseUntil - now) / 1000)} секунд)`);
         }
-      }, retryAfter * 1000);
+      }, restartDelay);
     } else {
       console.warn(`[Polling Rate Limit] Polling уже приостановлен до ${new Date(pollingPauseUntil).toISOString()}`);
     }
@@ -187,6 +219,30 @@ bot.on('error', (error) => {
 });
 
 console.log('Telegram bot initialized');
+
+// Запускаем polling с задержкой, чтобы избежать 429 при старте
+// Если бот был заблокирован, даём время на разблокировку
+setTimeout(async () => {
+  try {
+    console.log('[Polling] Запускаю polling с задержкой...');
+    await bot.startPolling();
+    console.log('[Polling] Polling успешно запущен');
+  } catch (error: any) {
+    console.error('[Polling] Ошибка при запуске polling:', error);
+    if (error.code === 'ETELEGRAM' && error.response?.statusCode === 429) {
+      const retryAfter = error.response?.body?.parameters?.retry_after || 60;
+      console.warn(`[Polling] Получен 429 при старте, жду ${retryAfter} секунд перед повтором...`);
+      setTimeout(async () => {
+        try {
+          await bot.startPolling();
+          console.log('[Polling] Polling запущен после задержки');
+        } catch (e) {
+          console.error('[Polling] Ошибка при повторном запуске:', e);
+        }
+      }, retryAfter * 1000);
+    }
+  }
+}, 5000); // Задержка 5 секунд перед запуском polling
 
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
