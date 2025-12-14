@@ -623,11 +623,15 @@ async function processNewsTemplate(chatId: number, state: UserState) {
         const NEWS_CONTENT_DURATION = NEWS_INITIAL_SILENCE + NEWS_TICKER_DURATION * NEWS_TICKER_COUNT;
         const TOTAL_DURATION = NEWS_CONTENT_DURATION + CTA_DURATION; // 35 секунд
         
+        // CTA текст для начитки (должен совпадать с текстом в videoRenderer.ts)
+        const CTA_TEXT = "О причинах учащения природных катастроф и прогнозах на ближайшие годы - в климатическом докладе учёных АЛЛАТРА";
+        
         audioPath = await generateNewsAudioTrack(
           state.newsTickers,
           NEWS_INITIAL_SILENCE,
           NEWS_TICKER_DURATION,
-          TOTAL_DURATION
+          TOTAL_DURATION,
+          CTA_TEXT
         );
         
         await bot.sendMessage(chatId, '🔊 Добавляю озвучку к видео...');

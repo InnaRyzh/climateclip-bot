@@ -436,7 +436,8 @@ export async function generateNewsAudioTrack(
   tickers: string[],
   initialSilence: number, // 2 секунды тишины в начале
   tickerDuration: number, // ~9.33 секунды каждый
-  totalDuration: number // 35 секунд (30 контент + 5 CTA)
+  totalDuration: number, // 35 секунд (30 контент + 5 CTA)
+  ctaText?: string // Текст для CTA (призыва к действию)
 ): Promise<string> {
   if (!OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY не найден в .env');
@@ -485,6 +486,39 @@ export async function generateNewsAudioTrack(
     } catch (error) {
       console.error(`[OpenAI TTS] Ошибка при озвучке ticker ${i + 1}:`, error);
       // Продолжаем с другими ticker'ами
+    }
+  }
+
+  // Озвучиваем CTA текст, если он предоставлен
+  if (ctaText && ctaText.trim().length > 0) {
+    const ctaAudioPath = path.join(tempDir, `cta_${Date.now()}.mp3`);
+    const ctaTrimmedPath = path.join(tempDir, `cta_trimmed_${Date.now()}.aac`);
+    const CTA_DURATION = 5; // Длительность CTA секции
+
+    try {
+      console.log(`[OpenAI TTS] Озвучиваю CTA: "${ctaText.substring(0, 50)}..."`);
+      
+      // Генерируем речь для CTA
+      await generateSpeech(ctaText.trim(), ctaAudioPath);
+      
+      // Настраиваем скорость под длительность CTA (5 секунд)
+      await adjustAudioSpeed(ctaAudioPath, CTA_DURATION, ctaTrimmedPath);
+      
+      // CTA начинается после всех ticker'ов (30 секунда)
+      const ctaStartTime = initialSilence + (tickers.length * tickerDuration); // 2 + 3 * 9.33 = 30
+      
+      segments.push({
+        path: ctaTrimmedPath,
+        startTime: ctaStartTime,
+        duration: CTA_DURATION
+      });
+
+      // Удаляем исходный файл
+      await fs.unlink(ctaAudioPath).catch(() => {});
+      
+    } catch (error) {
+      console.error(`[OpenAI TTS] Ошибка при озвучке CTA:`, error);
+      // Продолжаем без CTA начитки
     }
   }
 
