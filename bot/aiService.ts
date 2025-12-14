@@ -10,7 +10,7 @@ const HAS_OPENAI = Boolean(OPENAI_API_KEY);
 const AI_PROVIDER = process.env.AI_PROVIDER || (HAS_OPENAI ? 'openai' : 'perplexity');
 
 const FETCH_TIMEOUT_MS = 6000;
-const MAX_AI_WORDS = 26;
+const TARGET_WORDS_PER_SLIDE = 27; // Строго 27 слов для одинаковой скорости начитки (в диапазоне 25-30)
 const AI_RETRIES = 2;
 
 function capitalizeFirst(str: string) {
@@ -18,15 +18,50 @@ function capitalizeFirst(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function normalizeBlock(raw: string) {
+function normalizeBlock(raw: string, targetWords: number = TARGET_WORDS_PER_SLIDE): string {
   const trimmed = (raw || '').trim();
   if (!trimmed) return '';
-  const words = trimmed.split(/\s+/).slice(0, MAX_AI_WORDS);
-  let sentence = words.join(' ');
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  
+  // Если слов больше целевого количества - обрезаем
+  // Если меньше - оставляем как есть (AI должен генерировать правильное количество)
+  const finalWords = words.length > targetWords 
+    ? words.slice(0, targetWords)
+    : words;
+  
+  let sentence = finalWords.join(' ');
   if (!/[.!?…]$/.test(sentence)) {
     sentence = sentence + '.';
   }
   return capitalizeFirst(sentence);
+}
+
+/**
+ * Выравнивает количество слов во всех слайдах до одинакового значения
+ */
+function equalizeWordCount(blocks: string[]): string[] {
+  if (blocks.length !== 3) return blocks;
+  
+  const wordCounts = blocks.map(b => b.split(/\s+/).filter(Boolean).length);
+  const avgWords = Math.round(wordCounts.reduce((a, b) => a + b, 0) / 3);
+  const targetWords = Math.max(TARGET_WORDS_PER_SLIDE, avgWords);
+  
+  return blocks.map((block, index) => {
+    const words = block.split(/\s+/).filter(Boolean);
+    const currentCount = words.length;
+    
+    if (currentCount === targetWords) {
+      return block;
+    }
+    
+    if (currentCount > targetWords) {
+      // Обрезаем до целевого количества
+      return words.slice(0, targetWords).join(' ') + (block.match(/[.!?…]$/) ? '' : '.');
+    } else {
+      // Если меньше - оставляем как есть (не добавляем слова, чтобы не искажать смысл)
+      return block;
+    }
+  });
 }
 
 async function fetchWithTimeout(url: string, opts: any, timeout = FETCH_TIMEOUT_MS) {
@@ -147,8 +182,9 @@ async function tryPerplexity(text: string): Promise<string[] | null> {
 
         const parsedArr = tryParseArray(rawContent || '');
         if (!parsedArr) continue;
-        const normalized = parsedArr.map((s: string) => normalizeBlock(s));
-        return normalized;
+        const normalized = parsedArr.map((s: string) => normalizeBlock(s, TARGET_WORDS_PER_SLIDE));
+        const equalized = equalizeWordCount(normalized);
+        return equalized;
       } catch (err) {
         console.error(`Perplexity attempt ${attempt} error`, err);
         if (attempt === AI_RETRIES) throw err;
@@ -182,21 +218,27 @@ async function tryOpenAI(text: string): Promise<string[] | null> {
         messages: [
           {
             role: 'system',
-            content: `Ты профессиональный редактор новостных тикеров. Переписывай исходный текст в РОВНО 3 коротких новостных заголовка для бегущей строки.
+            content: `Ты профессиональный редактор новостных тикеров. Переписывай исходный текст в РОВНО 3 новостных заголовка для бегущей строки.
+
+КРИТИЧЕСКИ ВАЖНО - КОЛИЧЕСТВО СЛОВ:
+- Каждый заголовок ДОЛЖЕН содержать РОВНО 27 слов (строго!)
+- Все три заголовка должны иметь ОДИНАКОВОЕ количество слов
+- Это необходимо для синхронизации скорости начитки
+- Считай слова внимательно перед отправкой ответа
 
 ПРАВИЛА:
 1. Сохраняй ВСЕ факты: даты, места, числа, имена
 2. НЕ добавляй информацию, которой нет в исходном тексте
 3. НЕ добавляй эмоции, оценки, метафоры - только факты
-4. Каждый заголовок: 20-25 слов, законченная мысль
+4. Каждый заголовок: РОВНО 27 слов, законченная мысль
 5. Хронологический порядок: начало → развитие → итоги
 
-ФОРМАТ ОТВЕТА: Только JSON-массив из 3 строк, без пояснений:
-["первый заголовок", "второй заголовок", "третий заголовок"]`
+ФОРМАТ ОТВЕТА: Только JSON-массив из 3 строк, каждая строго 27 слов:
+["первый заголовок ровно 27 слов", "второй заголовок ровно 27 слов", "третий заголовок ровно 27 слов"]`
           },
           {
             role: 'user',
-            content: `Перепиши этот текст в 3 новостных заголовка (20-25 слов каждый):\n\n${text}`
+            content: `Перепиши этот текст в 3 новостных заголовка. КАЖДЫЙ заголовок должен содержать РОВНО 27 слов (строго одинаковое количество для всех трёх):\n\n${text}`
           }
         ]
       })
@@ -214,8 +256,15 @@ async function tryOpenAI(text: string): Promise<string[] | null> {
     const parsedArr = tryParseArray(rawContent || '');
     if (!parsedArr) return null;
     
-    const normalized = parsedArr.map((s: string) => normalizeBlock(s));
-    return normalized;
+    const normalized = parsedArr.map((s: string) => normalizeBlock(s, TARGET_WORDS_PER_SLIDE));
+    // Выравниваем количество слов до одинакового
+    const equalized = equalizeWordCount(normalized);
+    
+    // Логируем количество слов для проверки
+    const wordCounts = equalized.map(b => b.split(/\s+/).filter(Boolean).length);
+    console.log(`[OpenAI] Количество слов после нормализации:`, wordCounts);
+    
+    return equalized;
   } catch (err) {
     console.error('OpenAI error', err);
     return null;
@@ -253,10 +302,12 @@ export async function rewriteNewsText(text: string): Promise<string[]> {
 
     // Возвращаем результат OpenAI (приоритет)
     if (openaiResult.status === 'fulfilled' && openaiResult.value && openaiResult.value.length === 3) {
-      return openaiResult.value.map(normalizeBlock);
+      const normalized = openaiResult.value.map((s: string) => normalizeBlock(s, TARGET_WORDS_PER_SLIDE));
+      return equalizeWordCount(normalized);
     }
     if (perplexityResult.status === 'fulfilled' && perplexityResult.value && perplexityResult.value.length === 3) {
-      return perplexityResult.value.map(normalizeBlock);
+      const normalized = perplexityResult.value.map((s: string) => normalizeBlock(s, TARGET_WORDS_PER_SLIDE));
+      return equalizeWordCount(normalized);
     }
   }
 
@@ -264,18 +315,22 @@ export async function rewriteNewsText(text: string): Promise<string[]> {
   if (AI_PROVIDER === 'openai' && HAS_OPENAI) {
     const openaiResult = await tryOpenAI(cleanText);
     if (openaiResult && openaiResult.length === 3) {
-      const lens = openaiResult.map(p => p.split(' ').filter(Boolean).length);
+      const normalized = openaiResult.map((s: string) => normalizeBlock(s, TARGET_WORDS_PER_SLIDE));
+      const equalized = equalizeWordCount(normalized);
+      const lens = equalized.map(p => p.split(' ').filter(Boolean).length);
       console.log('OpenAI success, lengths:', lens);
-      return openaiResult.map(normalizeBlock);
+      return equalized;
     }
   }
 
   if (AI_PROVIDER === 'perplexity' || (AI_PROVIDER === 'openai' && !HAS_OPENAI)) {
     const perplexityResult = await tryPerplexity(cleanText);
     if (perplexityResult && perplexityResult.length === 3) {
-      const lens = perplexityResult.map(p => p.split(' ').filter(Boolean).length);
+      const normalized = perplexityResult.map((s: string) => normalizeBlock(s, TARGET_WORDS_PER_SLIDE));
+      const equalized = equalizeWordCount(normalized);
+      const lens = equalized.map(p => p.split(' ').filter(Boolean).length);
       console.log('Perplexity success, lengths:', lens);
-      return perplexityResult.map(normalizeBlock);
+      return equalized;
     }
   }
 
@@ -283,54 +338,47 @@ export async function rewriteNewsText(text: string): Promise<string[]> {
   if (HAS_OPENAI && AI_PROVIDER !== 'perplexity') {
     const openaiResult = await tryOpenAI(cleanText);
     if (openaiResult && openaiResult.length === 3) {
-      const lens = openaiResult.map(p => p.split(' ').filter(Boolean).length);
+      const normalized = openaiResult.map((s: string) => normalizeBlock(s, TARGET_WORDS_PER_SLIDE));
+      const equalized = equalizeWordCount(normalized);
+      const lens = equalized.map(p => p.split(' ').filter(Boolean).length);
       console.log('OpenAI success, lengths:', lens);
-      return openaiResult.map(normalizeBlock);
+      return equalized;
     }
   }
 
   // Perplexity отключен - используем только OpenAI или fallback
   // Если OpenAI не сработал, переходим к алгоритмическому fallback
 
-  // Надёжный алгоритмический фоллбек: равномерное деление в 3 части, целимся в ~23 слова
+  // Надёжный алгоритмический фоллбек: создаём 3 слайда строго по TARGET_WORDS_PER_SLIDE слов
   const words = cleanText.split(' ').filter(Boolean);
   const total = words.length;
 
   if (total === 0) return ['', '', ''];
 
-  const target = 23;
-  // Если текст короткий — равномерно
-  if (total <= target * 3) {
-    const base = Math.floor(total / 3);
-    const rem = total % 3;
-    const sizes = [
-      base + (rem > 0 ? 1 : 0),
-      base + (rem > 1 ? 1 : 0),
-      base
+  // Если текста достаточно для 3 слайдов по TARGET_WORDS_PER_SLIDE слов
+  if (total >= TARGET_WORDS_PER_SLIDE * 3) {
+    const blocks = [
+      words.slice(0, TARGET_WORDS_PER_SLIDE).join(' '),
+      words.slice(TARGET_WORDS_PER_SLIDE, TARGET_WORDS_PER_SLIDE * 2).join(' '),
+      words.slice(TARGET_WORDS_PER_SLIDE * 2, TARGET_WORDS_PER_SLIDE * 3).join(' ')
     ];
-    console.log('Fallback split short, lengths:', sizes);
-    return [
-      words.slice(0, sizes[0]).join(' '),
-      words.slice(sizes[0], sizes[0] + sizes[1]).join(' '),
-      words.slice(sizes[0] + sizes[1]).join(' ')
-    ].map(capitalizeFirst);
+    const normalized = blocks.map((b: string) => normalizeBlock(b, TARGET_WORDS_PER_SLIDE));
+    const equalized = equalizeWordCount(normalized);
+    console.log('Fallback split (достаточно слов), lengths:', equalized.map(b => b.split(' ').filter(Boolean).length));
+    return equalized;
   }
 
-  // Длинный текст: делим равномерно, чтобы покрыть весь текст
-  const base = Math.floor(total / 3);
-  const rem = total % 3;
-  const size1 = base + (rem > 0 ? 1 : 0);
-  const size2 = base + (rem > 1 ? 1 : 0);
-  const size3 = total - size1 - size2;
-
+  // Если текста меньше - делим равномерно, но выравниваем до одинакового количества
+  const wordsPerSlide = Math.max(1, Math.floor(total / 3));
   const blocks = [
-    words.slice(0, size1).join(' '),
-    words.slice(size1, size1 + size2).join(' '),
-    words.slice(size1 + size2).join(' ')
+    words.slice(0, wordsPerSlide).join(' '),
+    words.slice(wordsPerSlide, wordsPerSlide * 2).join(' '),
+    words.slice(wordsPerSlide * 2).join(' ')
   ];
 
-  const normalized = blocks.map(normalizeBlock);
-  console.log('Fallback split, lengths:', normalized.map(b => b.split(' ').filter(Boolean).length));
-  return normalized;
+  const normalized = blocks.map((b: string) => normalizeBlock(b, TARGET_WORDS_PER_SLIDE));
+  const equalized = equalizeWordCount(normalized);
+  console.log('Fallback split (мало слов), lengths:', equalized.map(b => b.split(' ').filter(Boolean).length));
+  return equalized;
 }
 
