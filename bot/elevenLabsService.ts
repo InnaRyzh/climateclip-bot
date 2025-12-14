@@ -9,7 +9,8 @@ const __dirname = path.dirname(__filename);
 
 // ВАЖНО: API ключ должен быть установлен через переменную окружения ELEVENLABS_API_KEY
 // Ключ должен иметь разрешение "Text to Speech" в настройках ElevenLabs
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+// Для продакшена на Railway установите переменную окружения ELEVENLABS_API_KEY
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_901a950a3e2b80a27db5cb9789a6e6a796f9df8dadb8438c';
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'txnCCHHGKmYIwrn7HfHQ'; // Пользовательский голос для новостей
 
 interface AudioSegment {
