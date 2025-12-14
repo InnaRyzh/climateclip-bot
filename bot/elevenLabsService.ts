@@ -7,8 +7,9 @@ import ffmpegPath from 'ffmpeg-static';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM'; // Rachel (женский голос, подходит для новостей)
+// ВАЖНО: Для продакшена лучше использовать .env файл вместо хардкода ключа
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_21063f878af4de8c019adf9fa56b22ef1ba0e115f74017c6';
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'txnCCHHGKmYIwrn7HfHQ'; // Пользовательский голос для новостей
 
 interface AudioSegment {
   text: string;
