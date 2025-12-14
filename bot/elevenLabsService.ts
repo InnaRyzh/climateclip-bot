@@ -13,11 +13,78 @@ const __dirname = path.dirname(__filename);
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_fb1ec1e0c207932d4bcb9dfd6dc2bd67713afac1b69e3b99';
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'ZHIn0jcgR6VIvVAXkwWV';
 
+// Логируем используемый голос для отладки
+console.log(`[ElevenLabs] Используется голос ID: ${ELEVENLABS_VOICE_ID}${process.env.ELEVENLABS_VOICE_ID ? ' (из переменной окружения)' : ' (по умолчанию)'}`);
+
 interface AudioSegment {
   text: string;
   startTime: number; // секунды от начала видео
   duration: number; // длительность сегмента
   audioPath: string; // путь к файлу аудио
+}
+
+/**
+ * Расшифровывает сокращения в тексте для правильной начитки
+ */
+function expandAbbreviations(text: string): string {
+  let expanded = text;
+  
+  // Словарь сокращений и их расшифровок
+  const abbreviations: Record<string, string> = {
+    'км/ч': 'километров в час',
+    'км/час': 'километров в час',
+    'мм': 'миллиметров',
+    'см': 'сантиметров',
+    'м': 'метров',
+    'км': 'километров',
+    '°C': 'градусов по Цельсию',
+    '°F': 'градусов по Фаренгейту',
+    'м/с': 'метров в секунду',
+    'мг/м³': 'миллиграммов на кубический метр',
+    '%': 'процентов',
+    'млн': 'миллионов',
+    'млрд': 'миллиардов',
+    'тыс': 'тысяч',
+    'г': 'граммов',
+    'кг': 'килограммов',
+    'т': 'тонн',
+    'л': 'литров',
+    'мл': 'миллилитров',
+    'ч': 'часов',
+    'мин': 'минут',
+    'сек': 'секунд',
+    'дн': 'дней',
+    'нед': 'недель',
+    'мес': 'месяцев',
+    'г': 'годов',
+    'гг': 'годов',
+    'д.н.э.': 'до нашей эры',
+    'н.э.': 'нашей эры',
+    'т.д.': 'так далее',
+    'т.п.': 'тому подобное',
+    'т.е.': 'то есть',
+    'т.к.': 'так как',
+    'и т.д.': 'и так далее',
+    'и т.п.': 'и тому подобное',
+  };
+  
+  // Заменяем сокращения (с учётом регистра и границ слов)
+  for (const [abbr, expansion] of Object.entries(abbreviations)) {
+    // Создаём регулярное выражение для поиска сокращения как отдельного слова
+    const regex = new RegExp(`\\b${abbr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    expanded = expanded.replace(regex, expansion);
+  }
+  
+  // Обработка чисел с единицами измерения (например, "50 км/ч" -> "50 километров в час")
+  expanded = expanded.replace(/(\d+)\s*км\/ч/gi, '$1 километров в час');
+  expanded = expanded.replace(/(\d+)\s*мм/gi, '$1 миллиметров');
+  expanded = expanded.replace(/(\d+)\s*см/gi, '$1 сантиметров');
+  expanded = expanded.replace(/(\d+)\s*м\b/gi, '$1 метров');
+  expanded = expanded.replace(/(\d+)\s*км\b/gi, '$1 километров');
+  expanded = expanded.replace(/(\d+)\s*°C/gi, '$1 градусов по Цельсию');
+  expanded = expanded.replace(/(\d+)\s*%/gi, '$1 процентов');
+  
+  return expanded;
 }
 
 /**
@@ -32,6 +99,9 @@ export async function generateSpeech(text: string, outputPath: string): Promise<
     throw new Error('Текст для озвучки пуст');
   }
 
+  // Расшифровываем сокращения перед отправкой на озвучку
+  const expandedText = expandAbbreviations(text.trim());
+  
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`;
   
   const response = await fetch(url, {
@@ -42,7 +112,7 @@ export async function generateSpeech(text: string, outputPath: string): Promise<
       'xi-api-key': ELEVENLABS_API_KEY
     },
     body: JSON.stringify({
-      text: text.trim(),
+      text: expandedText,
       model_id: 'eleven_multilingual_v2', // Поддержка русского языка
       voice_settings: {
         stability: 0.5,
