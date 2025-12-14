@@ -64,7 +64,14 @@ export async function generateSpeech(text: string, outputPath: string): Promise<
 Проверьте настройки ключа в https://elevenlabs.io/app/settings/api-key
 Убедитесь, что у ключа включено разрешение "Text to Speech".`;
       } else if (errorJson.detail?.message) {
-        errorMessage = `ElevenLabs API: ${errorJson.detail.message}`;
+        const detailMsg = errorJson.detail.message;
+        if (detailMsg.includes('Free Tier usage disabled') || detailMsg.includes('Unusual activity')) {
+          errorMessage = `ElevenLabs заблокировал Free Tier из-за необычной активности.
+Для работы озвучки необходим Paid Plan на ElevenLabs.
+Видео будет отправлено без озвучки.`;
+        } else {
+          errorMessage = `ElevenLabs API: ${detailMsg}`;
+        }
       } else {
         errorMessage = `ElevenLabs API error: ${errorText}`;
       }
@@ -368,6 +375,11 @@ export async function generateNewsAudioTrack(
 
     try {
       console.log(`[ElevenLabs] Озвучиваю ticker ${i + 1}/${tickers.length}: "${ticker.substring(0, 50)}..."`);
+      
+      // Добавляем задержку между запросами для Free Tier (чтобы не триггерить abuse detection)
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 секунда задержка
+      }
       
       // Генерируем речь
       await generateSpeech(ticker, audioPath);
