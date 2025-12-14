@@ -448,7 +448,7 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     
     const mp4Path = await convertWebmToMp4(webmPath, fileName, 60);
     
-    // Генерируем озвучку для ticker'ов через ElevenLabs
+    // Генерируем озвучку для ticker'ов через OpenAI TTS
     let finalVideoPath = mp4Path;
     let audioPath: string | null = null;
     
@@ -482,7 +482,7 @@ async function processNewsTemplate(chatId: number, state: UserState) {
         finalVideoPath = finalPath;
         
       } catch (error) {
-        console.error('[ElevenLabs] Ошибка при озвучке:', error);
+        console.error('[OpenAI TTS] Ошибка при озвучке:', error);
         await bot.sendMessage(chatId, `⚠️ Не удалось добавить озвучку: ${error instanceof Error ? error.message : String(error)}. Отправляю видео без озвучки.`);
         // Продолжаем без озвучки
       }

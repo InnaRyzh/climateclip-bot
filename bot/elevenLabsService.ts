@@ -7,11 +7,12 @@ import ffmpegPath from 'ffmpeg-static';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ВАЖНО: API ключ должен быть установлен через переменную окружения ELEVENLABS_API_KEY
-// Ключ должен иметь разрешение "Text to Speech" в настройках ElevenLabs
-// Для продакшена на Railway установите переменную окружения ELEVENLABS_API_KEY
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_901a950a3e2b80a27db5cb9789a6e6a796f9df8dadb8438c';
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'txnCCHHGKmYIwrn7HfHQ'; // Пользовательский голос для новостей
+// OpenAI TTS API настройки
+// ВАЖНО: API ключ должен быть установлен через переменную окружения OPENAI_API_KEY
+// Для продакшена на Railway установите переменную окружения OPENAI_API_KEY
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_VOICE = process.env.OPENAI_VOICE || 'nova'; // Голоса: alloy, echo, fable, onyx, nova, shimmer (nova - женский, подходит для новостей)
+const OPENAI_MODEL = process.env.OPENAI_TTS_MODEL || 'tts-1-hd'; // tts-1 (быстро) или tts-1-hd (качественно)
 
 interface AudioSegment {
   text: string;
@@ -21,62 +22,47 @@ interface AudioSegment {
 }
 
 /**
- * Озвучивает текст через ElevenLabs API
+ * Озвучивает текст через OpenAI TTS API
  */
 export async function generateSpeech(text: string, outputPath: string): Promise<void> {
-  if (!ELEVENLABS_API_KEY) {
-    throw new Error('ELEVENLABS_API_KEY не найден. Установите переменную окружения ELEVENLABS_API_KEY с ключом, у которого есть разрешение "Text to Speech".');
+  if (!OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY не найден. Установите переменную окружения OPENAI_API_KEY.');
   }
 
   if (!text || text.trim().length === 0) {
     throw new Error('Текст для озвучки пуст');
   }
 
-  const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`;
+  const url = 'https://api.openai.com/v1/audio/speech';
   
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Accept': 'audio/mpeg',
-      'Content-Type': 'application/json',
-      'xi-api-key': ELEVENLABS_API_KEY
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      text: text.trim(),
-      model_id: 'eleven_multilingual_v2', // Поддержка русского языка
-      voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.75,
-        style: 0.0,
-        use_speaker_boost: true
-      }
+      model: OPENAI_MODEL,
+      input: text.trim(),
+      voice: OPENAI_VOICE,
+      response_format: 'mp3', // OpenAI возвращает mp3
+      speed: 1.0 // Скорость речи (0.25 - 4.0)
     })
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    let errorMessage = `ElevenLabs API error: ${response.status}`;
+    let errorMessage = `OpenAI TTS API error: ${response.status}`;
     
     try {
       const errorJson = JSON.parse(errorText);
-      if (errorJson.detail?.status === 'missing_permissions') {
-        errorMessage = `Ошибка прав доступа: API ключ не имеет разрешения 'text_to_speech'. 
-Проверьте настройки ключа в https://elevenlabs.io/app/settings/api-key
-Убедитесь, что у ключа включено разрешение "Text to Speech".`;
-      } else if (errorJson.detail?.message) {
-        const detailMsg = errorJson.detail.message;
-        if (detailMsg.includes('Free Tier usage disabled') || detailMsg.includes('Unusual activity')) {
-          errorMessage = `ElevenLabs заблокировал Free Tier из-за необычной активности.
-Для работы озвучки необходим Paid Plan на ElevenLabs.
-Видео будет отправлено без озвучки.`;
-        } else {
-          errorMessage = `ElevenLabs API: ${detailMsg}`;
-        }
+      if (errorJson.error?.message) {
+        errorMessage = `OpenAI TTS API: ${errorJson.error.message}`;
       } else {
-        errorMessage = `ElevenLabs API error: ${errorText}`;
+        errorMessage = `OpenAI TTS API error: ${errorText}`;
       }
     } catch {
-      errorMessage = `ElevenLabs API error: ${response.status} - ${errorText}`;
+      errorMessage = `OpenAI TTS API error: ${response.status} - ${errorText}`;
     }
     
     throw new Error(errorMessage);
@@ -356,8 +342,8 @@ export async function generateNewsAudioTrack(
   tickerDuration: number, // ~8.67 секунды каждый
   totalDuration: number // 35 секунд (30 контент + 5 CTA)
 ): Promise<string> {
-  if (!ELEVENLABS_API_KEY) {
-    throw new Error('ELEVENLABS_API_KEY не найден в .env');
+  if (!OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY не найден в .env');
   }
 
   const tempDir = path.join(__dirname, 'temp', 'audio');
@@ -374,14 +360,14 @@ export async function generateNewsAudioTrack(
     const trimmedPath = path.join(tempDir, `ticker_${i}_trimmed_${Date.now()}.aac`);
 
     try {
-      console.log(`[ElevenLabs] Озвучиваю ticker ${i + 1}/${tickers.length}: "${ticker.substring(0, 50)}..."`);
+      console.log(`[OpenAI TTS] Озвучиваю ticker ${i + 1}/${tickers.length}: "${ticker.substring(0, 50)}..."`);
       
-      // Добавляем задержку между запросами для Free Tier (чтобы не триггерить abuse detection)
+      // Добавляем небольшую задержку между запросами
       if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 секунда задержка
+        await new Promise(resolve => setTimeout(resolve, 500)); // 0.5 секунды задержка
       }
       
-      // Генерируем речь
+      // Генерируем речь через OpenAI TTS
       await generateSpeech(ticker, audioPath);
       
       // Настраиваем скорость под нужную длительность
