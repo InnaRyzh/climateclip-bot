@@ -78,8 +78,70 @@ if (USE_LOCAL_API) {
 
 const bot = new TelegramBot(BOT_TOKEN, botOptions);
 
-bot.on('polling_error', (error) => {
-  console.error('Polling error:', error);
+// Переопределяем методы бота для автоматической обработки rate limiting
+const originalSendMessage = bot.sendMessage.bind(bot);
+const originalSendVideo = bot.sendVideo.bind(bot);
+
+bot.sendMessage = async function(chatId: number, text: string, options?: any): Promise<any> {
+  return await rateLimitedRequest(async () => {
+    for (let i = 0; i < 3; i++) {
+      try {
+        return await originalSendMessage(chatId, text, options);
+      } catch (error: any) {
+        if (error.code === 'ETELEGRAM' && error.response?.statusCode === 429) {
+          const retryAfter = error.response?.body?.parameters?.retry_after || 1;
+          console.warn(`[Rate Limit] sendMessage получил 429, жду ${retryAfter} секунд...`);
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error('Не удалось отправить сообщение после нескольких попыток');
+  });
+};
+
+bot.sendVideo = async function(chatId: number, videoPath: string, options?: any): Promise<any> {
+  return await rateLimitedRequest(async () => {
+    for (let i = 0; i < 3; i++) {
+      try {
+        return await originalSendVideo(chatId, videoPath, options);
+      } catch (error: any) {
+        if (error.code === 'ETELEGRAM' && error.response?.statusCode === 429) {
+          const retryAfter = error.response?.body?.parameters?.retry_after || 1;
+          console.warn(`[Rate Limit] sendVideo получил 429, жду ${retryAfter} секунд...`);
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error('Не удалось отправить видео после нескольких попыток');
+  });
+};
+
+// Задержка между запросами для предотвращения rate limiting
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 50; // 50ms между запросами (20 запросов/сек максимум)
+
+async function rateLimitedRequest<T>(fn: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastRequestTime;
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+  }
+  lastRequestTime = Date.now();
+  return await fn();
+}
+
+bot.on('polling_error', (error: any) => {
+  if (error.code === 'ETELEGRAM' && error.response?.statusCode === 429) {
+    const retryAfter = error.response?.body?.parameters?.retry_after || 1;
+    console.warn(`[Polling Rate Limit] Получен 429, жду ${retryAfter} секунд...`);
+    // Polling автоматически повторит запрос
+  } else {
+    console.error('Polling error:', error);
+  }
 });
 
 bot.on('error', (error) => {
