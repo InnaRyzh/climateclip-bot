@@ -79,7 +79,8 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     
     // --- TIMING CONFIG ---
     const GRID_CONTENT_DURATION = 20; 
-    const NEWS_HEADER_DURATION = 4; // секунды показа шапки (дата+страна)
+    const NEWS_INITIAL_SILENCE = 2; // Тишина в начале (пользователь может перелистнуть)
+    const NEWS_HEADER_DURATION = 2; // секунды показа шапки (дата+страна) - первые 2 секунды
     const NEWS_TICKER_COUNT = 3; // количество текстовых блоков от Perplexity
     const NEWS_CLIP_DURATION = 6; // длительность каждого ролика
     const NEWS_CLIP_COUNT = 5; // количество роликов
@@ -87,10 +88,10 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     // Вычисляем длительность каждого текстового блока:
     // Всего видео: 5 роликов * 6 сек = 30 сек + CTA 5 сек = 35 сек
     // Контент до CTA: 35 - 5 = 30 сек
-    // После шапки (4 сек): 30 - 4 = 26 сек
-    // На 3 блока: 26 / 3 = 8.67 сек каждый
-    const NEWS_TICKER_DURATION = (NEWS_CLIP_COUNT * NEWS_CLIP_DURATION + CTA_DURATION - NEWS_HEADER_DURATION - CTA_DURATION) / NEWS_TICKER_COUNT;
-    const NEWS_CONTENT_DURATION = NEWS_HEADER_DURATION + NEWS_TICKER_DURATION * NEWS_TICKER_COUNT; // 4 + 26 = 30 сек 
+    // После начальной тишины (2 сек): 30 - 2 = 28 сек
+    // На 3 блока: 28 / 3 = 9.33 сек каждый
+    const NEWS_TICKER_DURATION = (NEWS_CLIP_COUNT * NEWS_CLIP_DURATION + CTA_DURATION - NEWS_INITIAL_SILENCE - CTA_DURATION) / NEWS_TICKER_COUNT;
+    const NEWS_CONTENT_DURATION = NEWS_INITIAL_SILENCE + NEWS_TICKER_DURATION * NEWS_TICKER_COUNT; // 2 + 28 = 30 сек 
     
     window.videosLoaded = false;
     window.uploadComplete = false;
@@ -854,7 +855,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                             ctx.fillText("LIVE", liveX + 60, liveY + 26);
                             
                             if (elapsed < NEWS_HEADER_DURATION) {
-                                // 0-3s: HEADER (Единая белая плашка)
+                                // 0-2s: HEADER (Единая белая плашка)
                                 const headerY = HEIGHT / 2;
                                 const centerX = WIDTH / 2;
                                 
@@ -920,9 +921,9 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                                 }
                                 
                             } else {
-                                // 3s+: TICKERS
+                                // 2s+: TICKERS (текст и начитка начинаются одновременно со 2 секунды)
                                 if (options.tickers && options.tickers.length > 0) {
-                                const tickerTime = elapsed - NEWS_HEADER_DURATION;
+                                const tickerTime = elapsed - NEWS_INITIAL_SILENCE; // Отсчёт от 2 секунды
                                 const tickerDuration = NEWS_TICKER_DURATION;
                                 const tickerIndex = Math.floor(tickerTime / tickerDuration);
                                     

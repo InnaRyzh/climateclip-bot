@@ -613,18 +613,19 @@ async function processNewsTemplate(chatId: number, state: UserState) {
         await bot.sendMessage(chatId, '🎙️ Озвучиваю текст...');
         
         // Константы тайминга (должны совпадать с videoRenderer.ts)
-        const NEWS_HEADER_DURATION = 4; // секунды показа шапки
+        const NEWS_INITIAL_SILENCE = 2; // Тишина в начале (пользователь может перелистнуть)
+        const NEWS_HEADER_DURATION = 2; // секунды показа шапки (первые 2 секунды)
         const NEWS_CLIP_COUNT = 5; // количество роликов
         const NEWS_CLIP_DURATION = 6; // длительность каждого ролика
         const CTA_DURATION = 5; // призыв к действию
         const NEWS_TICKER_COUNT = 3;
-        const NEWS_TICKER_DURATION = (NEWS_CLIP_COUNT * NEWS_CLIP_DURATION + CTA_DURATION - NEWS_HEADER_DURATION - CTA_DURATION) / NEWS_TICKER_COUNT;
-        const NEWS_CONTENT_DURATION = NEWS_HEADER_DURATION + NEWS_TICKER_DURATION * NEWS_TICKER_COUNT;
+        const NEWS_TICKER_DURATION = (NEWS_CLIP_COUNT * NEWS_CLIP_DURATION + CTA_DURATION - NEWS_INITIAL_SILENCE - CTA_DURATION) / NEWS_TICKER_COUNT;
+        const NEWS_CONTENT_DURATION = NEWS_INITIAL_SILENCE + NEWS_TICKER_DURATION * NEWS_TICKER_COUNT;
         const TOTAL_DURATION = NEWS_CONTENT_DURATION + CTA_DURATION; // 35 секунд
         
         audioPath = await generateNewsAudioTrack(
           state.newsTickers,
-          NEWS_HEADER_DURATION,
+          NEWS_INITIAL_SILENCE,
           NEWS_TICKER_DURATION,
           TOTAL_DURATION
         );

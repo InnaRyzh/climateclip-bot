@@ -434,8 +434,8 @@ export async function concatenateAudioSegments(
  */
 export async function generateNewsAudioTrack(
   tickers: string[],
-  headerDuration: number, // 4 секунды
-  tickerDuration: number, // ~8.67 секунды каждый
+  initialSilence: number, // 2 секунды тишины в начале
+  tickerDuration: number, // ~9.33 секунды каждый
   totalDuration: number // 35 секунд (30 контент + 5 CTA)
 ): Promise<string> {
   if (!OPENAI_API_KEY) {
@@ -466,19 +466,17 @@ export async function generateNewsAudioTrack(
       // Генерируем речь через OpenAI TTS
       await generateSpeech(ticker, audioPath);
       
-      // Настраиваем скорость под нужную длительность (минус 2 секунды задержки)
-      const audioDuration = tickerDuration - 2; // Уменьшаем на 2 секунды, так как начитка начинается с задержкой
-      await adjustAudioSpeed(audioPath, audioDuration, trimmedPath);
+      // Настраиваем скорость под нужную длительность (полная длительность, без задержки)
+      await adjustAudioSpeed(audioPath, tickerDuration, trimmedPath);
       
-      // Вычисляем время начала этого сегмента: начало показа текста + 2 секунды задержки
-      // Это даёт пользователю время перелистнуть видео перед началом начитки
-      const textStartTime = headerDuration + (i * tickerDuration);
-      const audioStartTime = textStartTime + 2; // Начитка начинается через 2 секунды после показа текста
+      // Вычисляем время начала этого сегмента: начитка начинается со 2 секунды вместе с текстом
+      // Первые 2 секунды - тишина (пользователь может перелистнуть)
+      const audioStartTime = initialSilence + (i * tickerDuration); // 2 + i * tickerDuration
       
       segments.push({
         path: trimmedPath,
         startTime: audioStartTime,
-        duration: audioDuration
+        duration: tickerDuration
       });
 
       // Удаляем исходный файл
