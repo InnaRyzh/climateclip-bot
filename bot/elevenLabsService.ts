@@ -53,7 +53,24 @@ export async function generateSpeech(text: string, outputPath: string): Promise<
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+    let errorMessage = `ElevenLabs API error: ${response.status}`;
+    
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.detail?.status === 'missing_permissions') {
+        errorMessage = `Ошибка прав доступа: API ключ не имеет разрешения 'text_to_speech'. 
+Проверьте настройки ключа в https://elevenlabs.io/app/settings/api-key
+Убедитесь, что у ключа включено разрешение "Text to Speech".`;
+      } else if (errorJson.detail?.message) {
+        errorMessage = `ElevenLabs API: ${errorJson.detail.message}`;
+      } else {
+        errorMessage = `ElevenLabs API error: ${errorText}`;
+      }
+    } catch {
+      errorMessage = `ElevenLabs API error: ${response.status} - ${errorText}`;
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const audioBuffer = await response.arrayBuffer();
