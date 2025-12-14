@@ -120,64 +120,158 @@ export async function adjustAudioSpeed(
   outputPath: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    // Сначала получаем длительность исходного аудио
-    const probe = spawn(ffmpegPath || 'ffmpeg', [
-      '-i', inputPath,
+    // Используем ffprobe для получения длительности (более надёжно)
+    // Если ffprobe недоступен, используем ffmpeg с правильными параметрами
+    const probeCmd = ffmpegPath?.replace('ffmpeg', 'ffprobe') || 'ffprobe';
+    
+    const probe = spawn(probeCmd, [
+      '-v', 'error',
       '-show_entries', 'format=duration',
-      '-v', 'quiet',
-      '-of', 'csv=p=0'
-    ]);
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      inputPath
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
 
     let duration = '';
+    let probeStderr = '';
+    
     probe.stdout.on('data', (data) => {
       duration += data.toString();
+    });
+    
+    probe.stderr.on('data', (data) => {
+      probeStderr += data.toString();
     });
 
     probe.on('close', (code) => {
       if (code !== 0) {
-        return reject(new Error('Failed to probe audio duration'));
+        // Если ffprobe не работает, пробуем через ffmpeg
+        console.warn('[Audio] ffprobe failed, trying ffmpeg method...');
+        const ffmpegProbe = spawn(ffmpegPath || 'ffmpeg', [
+          '-i', inputPath,
+          '-f', 'null',
+          '-'
+        ], {
+          stdio: ['ignore', 'ignore', 'pipe']
+        });
+        
+        let ffmpegStderr = '';
+        ffmpegProbe.stderr.on('data', (data) => {
+          const text = data.toString();
+          ffmpegStderr += text;
+          // Ищем длительность в выводе ffmpeg: Duration: HH:MM:SS.mm
+          const durationMatch = text.match(/Duration: (\d{2}):(\d{2}):(\d{2})\.(\d{2})/);
+          if (durationMatch) {
+            const hours = parseInt(durationMatch[1]);
+            const minutes = parseInt(durationMatch[2]);
+            const seconds = parseInt(durationMatch[3]);
+            const centiseconds = parseInt(durationMatch[4]);
+            duration = (hours * 3600 + minutes * 60 + seconds + centiseconds / 100).toString();
+          }
+        });
+        
+        ffmpegProbe.on('close', (ffmpegCode) => {
+          const originalDuration = parseFloat(duration.trim());
+          if (isNaN(originalDuration) || originalDuration <= 0) {
+            return reject(new Error(`Failed to get audio duration. ffprobe stderr: ${probeStderr}, ffmpeg stderr: ${ffmpegStderr.substring(0, 200)}`));
+          }
+          
+          processAudioSpeed(inputPath, originalDuration, targetDuration, outputPath, resolve, reject);
+        });
+        
+        ffmpegProbe.on('error', (err) => {
+          reject(new Error(`Failed to probe audio: ${err.message}`));
+        });
+        
+        return;
       }
 
       const originalDuration = parseFloat(duration.trim());
       if (isNaN(originalDuration) || originalDuration <= 0) {
-        return reject(new Error(`Invalid audio duration: ${duration}`));
+        return reject(new Error(`Invalid audio duration: ${duration.trim()}`));
       }
 
-      // Вычисляем коэффициент скорости (tempo)
-      // atempo принимает значения от 0.5 до 2.0, если нужно больше - применяем несколько раз
-      let speed = originalDuration / targetDuration;
-      
-      const ffmpeg = spawn(ffmpegPath || 'ffmpeg', [
-        '-y',
-        '-i', inputPath,
-        '-af', getTempoFilter(speed),
-        '-acodec', 'aac',
-        '-ar', '44100',
-        '-b:a', '128k',
-        outputPath
-      ]);
-
-      let stderr = '';
-      ffmpeg.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      ffmpeg.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`FFmpeg failed: ${code}\n${stderr}`));
-        }
-      });
-
-      ffmpeg.on('error', (err) => {
-        reject(err);
-      });
+      processAudioSpeed(inputPath, originalDuration, targetDuration, outputPath, resolve, reject);
     });
 
     probe.on('error', (err) => {
-      reject(err);
+      // Если ffprobe не найден, пробуем через ffmpeg
+      console.warn('[Audio] ffprobe not found, using ffmpeg method...');
+      const ffmpegProbe = spawn(ffmpegPath || 'ffmpeg', [
+        '-i', inputPath,
+        '-f', 'null',
+        '-'
+      ], {
+        stdio: ['ignore', 'ignore', 'pipe']
+      });
+      
+      let ffmpegStderr = '';
+      ffmpegProbe.stderr.on('data', (data) => {
+        const text = data.toString();
+        ffmpegStderr += text;
+        const durationMatch = text.match(/Duration: (\d{2}):(\d{2}):(\d{2})\.(\d{2})/);
+        if (durationMatch) {
+          const hours = parseInt(durationMatch[1]);
+          const minutes = parseInt(durationMatch[2]);
+          const seconds = parseInt(durationMatch[3]);
+          const centiseconds = parseInt(durationMatch[4]);
+          duration = (hours * 3600 + minutes * 60 + seconds + centiseconds / 100).toString();
+        }
+      });
+      
+      ffmpegProbe.on('close', () => {
+        const originalDuration = parseFloat(duration.trim());
+        if (isNaN(originalDuration) || originalDuration <= 0) {
+          return reject(new Error(`Failed to get audio duration from ffmpeg output`));
+        }
+        processAudioSpeed(inputPath, originalDuration, targetDuration, outputPath, resolve, reject);
+      });
+      
+      ffmpegProbe.on('error', (probeErr) => {
+        reject(new Error(`Failed to probe audio: ${probeErr.message}`));
+      });
     });
+  });
+}
+
+function processAudioSpeed(
+  inputPath: string,
+  originalDuration: number,
+  targetDuration: number,
+  outputPath: string,
+  resolve: () => void,
+  reject: (err: Error) => void
+) {
+  // Вычисляем коэффициент скорости (tempo)
+  // atempo принимает значения от 0.5 до 2.0, если нужно больше - применяем несколько раз
+  let speed = originalDuration / targetDuration;
+  
+  const ffmpeg = spawn(ffmpegPath || 'ffmpeg', [
+    '-y',
+    '-i', inputPath,
+    '-af', getTempoFilter(speed),
+    '-acodec', 'aac',
+    '-ar', '44100',
+    '-b:a', '128k',
+    outputPath
+  ]);
+
+  let stderr = '';
+  ffmpeg.stderr.on('data', (data) => {
+    stderr += data.toString();
+  });
+
+  ffmpeg.on('close', (code) => {
+    if (code === 0) {
+      resolve();
+    } else {
+      reject(new Error(`FFmpeg failed: ${code}\n${stderr.substring(0, 500)}`));
+    }
+  });
+
+  ffmpeg.on('error', (err) => {
+    reject(err);
   });
 }
 
@@ -386,7 +480,7 @@ export async function generateNewsAudioTrack(
       await fs.unlink(audioPath).catch(() => {});
       
     } catch (error) {
-      console.error(`[ElevenLabs] Ошибка при озвучке ticker ${i + 1}:`, error);
+      console.error(`[OpenAI TTS] Ошибка при озвучке ticker ${i + 1}:`, error);
       // Продолжаем с другими ticker'ами
     }
   }
