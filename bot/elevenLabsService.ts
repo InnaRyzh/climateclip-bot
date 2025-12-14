@@ -43,10 +43,12 @@ export async function generateSpeech(text: string, outputPath: string): Promise<
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
+      // Добавляем инструкции по стилю чтения в начало текста для лучшей интонации
+      // OpenAI TTS лучше интерпретирует текст с явными инструкциями
       input: text.trim(),
       voice: OPENAI_VOICE,
       response_format: 'mp3', // OpenAI возвращает mp3
-      speed: 1.0 // Скорость речи (0.25 - 4.0)
+      speed: 0.95 // Немного замедленная скорость для спокойной, разборчивой начитки (0.25 - 4.0)
     })
   });
 
