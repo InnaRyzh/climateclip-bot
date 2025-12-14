@@ -62,10 +62,12 @@ if (USE_LOCAL_API) {
 
 const botOptions: any = { 
   polling: {
-    interval: 300,
+    interval: 1000, // Увеличиваем интервал до 1 секунды для снижения нагрузки
     autoStart: true,
     params: {
-      timeout: 10
+      timeout: 30, // Увеличиваем timeout
+      limit: 1, // Получаем по 1 обновлению за раз
+      allowed_updates: ['message', 'callback_query'] // Только нужные типы обновлений
     }
   }
 };
@@ -134,13 +136,49 @@ async function rateLimitedRequest<T>(fn: () => Promise<T>): Promise<T> {
   return await fn();
 }
 
-bot.on('polling_error', (error: any) => {
+let isPollingPaused = false;
+let pollingPauseUntil = 0;
+
+bot.on('polling_error', async (error: any) => {
   if (error.code === 'ETELEGRAM' && error.response?.statusCode === 429) {
-    const retryAfter = error.response?.body?.parameters?.retry_after || 1;
-    console.warn(`[Polling Rate Limit] Получен 429, жду ${retryAfter} секунд...`);
-    // Polling автоматически повторит запрос
+    const retryAfter = error.response?.body?.parameters?.retry_after || 60;
+    const pauseUntil = Date.now() + (retryAfter * 1000);
+    pollingPauseUntil = pauseUntil;
+    
+    if (!isPollingPaused) {
+      isPollingPaused = true;
+      console.warn(`[Polling Rate Limit] Получен 429, останавливаю polling на ${retryAfter} секунд...`);
+      
+      try {
+        await bot.stopPolling();
+        console.log('[Polling] Polling остановлен');
+      } catch (e) {
+        console.warn('[Polling] Ошибка при остановке polling:', e);
+      }
+      
+      // Перезапускаем polling после задержки
+      setTimeout(async () => {
+        if (Date.now() >= pollingPauseUntil) {
+          console.log('[Polling] Перезапускаю polling...');
+          isPollingPaused = false;
+          try {
+            await bot.startPolling();
+            console.log('[Polling] Polling перезапущен');
+          } catch (e) {
+            console.error('[Polling] Ошибка при перезапуске polling:', e);
+            // Повторяем попытку через минуту
+            setTimeout(() => {
+              bot.startPolling().catch(console.error);
+            }, 60000);
+          }
+        }
+      }, retryAfter * 1000);
+    } else {
+      console.warn(`[Polling Rate Limit] Polling уже приостановлен до ${new Date(pollingPauseUntil).toISOString()}`);
+    }
   } else {
     console.error('Polling error:', error);
+    // Для других ошибок не останавливаем polling, но логируем
   }
 });
 
