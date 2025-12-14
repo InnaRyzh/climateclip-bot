@@ -518,7 +518,7 @@ export async function generateNewsAudioTrack(
   tickers: string[],
   initialSilence: number, // 2 секунды тишины в начале
   tickerDuration: number, // ~9.33 секунды каждый
-  totalDuration: number, // 35 секунд (30 контент + 5 CTA)
+  totalDuration: number, // 37 секунд (30 контент + 7 CTA)
   ctaText?: string // Текст для CTA (призыва к действию)
 ): Promise<string> {
   if (!ELEVENLABS_API_KEY) {
@@ -575,7 +575,7 @@ export async function generateNewsAudioTrack(
   if (ctaText && ctaText.trim().length > 0) {
     const ctaAudioPath = path.join(tempDir, `cta_${Date.now()}.mp3`);
     const ctaTrimmedPath = path.join(tempDir, `cta_trimmed_${Date.now()}.aac`);
-    const CTA_DURATION = 5; // Длительность CTA секции
+    const CTA_DURATION = 7; // Длительность CTA секции (увеличено на 2 секунды)
 
     try {
       console.log(`[ElevenLabs] Озвучиваю CTA: "${ctaText.substring(0, 50)}..."`);
@@ -583,7 +583,7 @@ export async function generateNewsAudioTrack(
       // Генерируем речь для CTA через ElevenLabs
       await generateSpeech(ctaText.trim(), ctaAudioPath);
       
-      // Настраиваем скорость под длительность CTA (5 секунд)
+      // Настраиваем скорость под длительность CTA (7 секунд)
       await adjustAudioSpeed(ctaAudioPath, CTA_DURATION, ctaTrimmedPath);
       
       // CTA начинается после всех ticker'ов (30 секунда)

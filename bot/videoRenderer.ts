@@ -84,10 +84,10 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     const NEWS_TICKER_COUNT = 3; // количество текстовых блоков от Perplexity
     const NEWS_CLIP_DURATION = 6; // длительность каждого ролика
     const NEWS_CLIP_COUNT = 5; // количество роликов
-    const CTA_DURATION = 5; // призыв к действию
+    const CTA_DURATION = 7; // призыв к действию (увеличено на 2 секунды)
     // Вычисляем длительность каждого текстового блока:
-    // Всего видео: 5 роликов * 6 сек = 30 сек + CTA 5 сек = 35 сек
-    // Контент до CTA: 35 - 5 = 30 сек
+    // Всего видео: 5 роликов * 6 сек = 30 сек + CTA 7 сек = 37 сек
+    // Контент до CTA: 37 - 7 = 30 сек
     // После начальной тишины (2 сек): 30 - 2 = 28 сек
     // На 3 блока: 28 / 3 = 9.33 сек каждый
     const NEWS_TICKER_DURATION = (NEWS_CLIP_COUNT * NEWS_CLIP_DURATION + CTA_DURATION - NEWS_INITIAL_SILENCE - CTA_DURATION) / NEWS_TICKER_COUNT;
