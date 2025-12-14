@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 // ВАЖНО: API ключ должен быть установлен через переменную окружения OPENAI_API_KEY
 // Для продакшена на Railway установите переменную окружения OPENAI_API_KEY
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_VOICE = process.env.OPENAI_VOICE || 'onyx'; // Голоса: alloy, echo, fable, onyx, nova, shimmer (onyx - мужской, подходит для новостей)
+const OPENAI_VOICE = process.env.OPENAI_VOICE || 'shimmer'; // Голоса: alloy, echo, fable, onyx, nova, shimmer (shimmer - женский, подходит для новостей)
 const OPENAI_MODEL = process.env.OPENAI_TTS_MODEL || 'tts-1-hd'; // tts-1 (быстро) или tts-1-hd (качественно)
 
 interface AudioSegment {
@@ -466,16 +466,19 @@ export async function generateNewsAudioTrack(
       // Генерируем речь через OpenAI TTS
       await generateSpeech(ticker, audioPath);
       
-      // Настраиваем скорость под нужную длительность
-      await adjustAudioSpeed(audioPath, tickerDuration, trimmedPath);
+      // Настраиваем скорость под нужную длительность (минус 2 секунды задержки)
+      const audioDuration = tickerDuration - 2; // Уменьшаем на 2 секунды, так как начитка начинается с задержкой
+      await adjustAudioSpeed(audioPath, audioDuration, trimmedPath);
       
-      // Вычисляем время начала этого сегмента
-      const startTime = headerDuration + (i * tickerDuration);
+      // Вычисляем время начала этого сегмента: начало показа текста + 2 секунды задержки
+      // Это даёт пользователю время перелистнуть видео перед началом начитки
+      const textStartTime = headerDuration + (i * tickerDuration);
+      const audioStartTime = textStartTime + 2; // Начитка начинается через 2 секунды после показа текста
       
       segments.push({
         path: trimmedPath,
-        startTime,
-        duration: tickerDuration
+        startTime: audioStartTime,
+        duration: audioDuration
       });
 
       // Удаляем исходный файл

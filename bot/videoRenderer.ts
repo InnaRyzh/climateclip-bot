@@ -927,8 +927,10 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                                 const tickerIndex = Math.floor(tickerTime / tickerDuration);
                                     
                                     if (tickerIndex >= 0 && tickerIndex < NEWS_TICKER_COUNT) {
-                                        // Делаем первую букву заглавной
+                                        // Делаем первую букву заглавной и убираем кавычки/скобки
                                         let rawTicker = options.tickers[tickerIndex];
+                                        // Убираем кавычки и квадратные скобки
+                                        rawTicker = rawTicker ? rawTicker.replace(/["'«»„"]/g, '').replace(/[\[\]]/g, '').trim() : '';
                                         const currentTicker = rawTicker ? rawTicker.charAt(0).toUpperCase() + rawTicker.slice(1) : '';
                                         
                                         if (currentTicker) {
