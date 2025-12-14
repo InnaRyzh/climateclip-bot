@@ -2,9 +2,10 @@ import express from 'express';
 import { config } from 'dotenv';
 import TelegramBot from 'node-telegram-bot-api';
 import { renderVideo } from './videoRenderer.js';
-import { convertWebmToMp4 } from './videoConverter.js';
+import { convertWebmToMp4, addAudioToVideo } from './videoConverter.js';
 import { downloadFile, cleanupFiles, trimVideoToDuration } from './fileManager.js';
 import { rewriteNewsText } from './aiService.js';
+import { generateNewsAudioTrack } from './elevenLabsService.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -447,9 +448,59 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     
     const mp4Path = await convertWebmToMp4(webmPath, fileName, 60);
     
-    await bot.sendVideo(chatId, mp4Path);
+    // Генерируем озвучку для ticker'ов через ElevenLabs
+    let finalVideoPath = mp4Path;
+    let audioPath: string | null = null;
     
-    await cleanupFiles([...videoPaths, ...trimmedPaths, webmPath, mp4Path]);
+    if (state.newsTickers && state.newsTickers.length > 0 && state.newsTickers.some(t => t && t.trim().length > 0)) {
+      try {
+        await bot.sendMessage(chatId, '🎙️ Озвучиваю текст...');
+        
+        // Константы тайминга (должны совпадать с videoRenderer.ts)
+        const NEWS_HEADER_DURATION = 4; // секунды показа шапки
+        const NEWS_CLIP_COUNT = 5; // количество роликов
+        const NEWS_CLIP_DURATION = 6; // длительность каждого ролика
+        const CTA_DURATION = 5; // призыв к действию
+        const NEWS_TICKER_COUNT = 3;
+        const NEWS_TICKER_DURATION = (NEWS_CLIP_COUNT * NEWS_CLIP_DURATION + CTA_DURATION - NEWS_HEADER_DURATION - CTA_DURATION) / NEWS_TICKER_COUNT;
+        const NEWS_CONTENT_DURATION = NEWS_HEADER_DURATION + NEWS_TICKER_DURATION * NEWS_TICKER_COUNT;
+        const TOTAL_DURATION = NEWS_CONTENT_DURATION + CTA_DURATION; // 35 секунд
+        
+        audioPath = await generateNewsAudioTrack(
+          state.newsTickers,
+          NEWS_HEADER_DURATION,
+          NEWS_TICKER_DURATION,
+          TOTAL_DURATION
+        );
+        
+        await bot.sendMessage(chatId, '🔊 Добавляю озвучку к видео...');
+        
+        // Добавляем аудио к видео (заменяем оригинальное аудио)
+        const finalPath = mp4Path.replace('.mp4', '_with_audio.mp4');
+        await addAudioToVideo(mp4Path, audioPath, finalPath, false);
+        
+        finalVideoPath = finalPath;
+        
+      } catch (error) {
+        console.error('[ElevenLabs] Ошибка при озвучке:', error);
+        await bot.sendMessage(chatId, `⚠️ Не удалось добавить озвучку: ${error instanceof Error ? error.message : String(error)}. Отправляю видео без озвучки.`);
+        // Продолжаем без озвучки
+      }
+    }
+    
+    await bot.sendVideo(chatId, finalVideoPath);
+    
+    // Очищаем файлы (включая аудио, если было создано)
+    const filesToCleanup = [...videoPaths, ...trimmedPaths, webmPath];
+    if (audioPath) {
+      filesToCleanup.push(audioPath);
+    }
+    // Удаляем промежуточный MP4 без аудио, если был создан финальный с аудио
+    if (finalVideoPath !== mp4Path) {
+      filesToCleanup.push(mp4Path);
+    }
+    // Финальный файл (finalVideoPath) не удаляем - он уже отправлен пользователю
+    await cleanupFiles(filesToCleanup);
     userStates.delete(chatId);
     console.log(`News done in ${(Date.now() - started) / 1000}s`);
     

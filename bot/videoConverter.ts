@@ -60,3 +60,56 @@ export async function convertWebmToMp4(
   });
 }
 
+/**
+ * Добавляет аудио трек к видео (заменяет или смешивает с существующим)
+ */
+export async function addAudioToVideo(
+  videoPath: string,
+  audioPath: string,
+  outputPath: string,
+  mixWithOriginal: boolean = false // Если true - смешивает с оригинальным аудио, иначе заменяет
+): Promise<string> {
+  console.log(`Adding audio to video: ${videoPath} + ${audioPath} -> ${outputPath}`);
+  
+  return new Promise((resolve, reject) => {
+    const outputOpts = [
+      '-c:v copy', // Копируем видео без перекодирования
+      '-c:a aac',
+      '-b:a 192k',
+      '-shortest', // Обрезаем по самому короткому потоку
+      '-movflags +faststart'
+    ];
+
+    if (mixWithOriginal) {
+      // Смешиваем оригинальное аудио с новым (50/50)
+      outputOpts.push('-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2');
+      outputOpts.push('-map', '0:v:0');
+    } else {
+      // Заменяем аудио (или добавляем, если его нет)
+      // Используем -map для явного указания потоков
+      outputOpts.push('-map', '0:v:0');
+      // Если в видео есть аудио, оно будет проигнорировано, используем только новое
+      outputOpts.push('-map', '1:a:0');
+      // Игнорируем оригинальное аудио, если оно есть
+      outputOpts.push('-ignore_unknown');
+    }
+
+    ffmpeg()
+      .input(videoPath)
+      .input(audioPath)
+      .outputOptions(outputOpts)
+      .on('start', (commandLine) => {
+        console.log('FFmpeg add audio started:', commandLine);
+      })
+      .on('error', (err) => {
+        console.error('FFmpeg add audio error:', err.message);
+        reject(err);
+      })
+      .on('end', () => {
+        console.log('Audio added successfully');
+        resolve(outputPath);
+      })
+      .save(outputPath);
+  });
+}
+
