@@ -8,6 +8,7 @@ import { rewriteNewsText } from './aiService.js';
 import { generateNewsAudioTrack } from './elevenLabsService.js';
 import path from 'path';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import { fileURLToPath } from 'url';
 
 config();
@@ -250,6 +251,12 @@ app.use(express.urlencoded({ limit: '500mb', extended: true }));
 const tempDir = path.join(__dirname, 'temp');
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
+}
+
+// Директория для сохранения финальных файлов
+const outputDir = path.join(__dirname, 'output');
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir, { recursive: true });
 }
 app.use('/temp', express.static(tempDir, {
   setHeaders: (res) => {
@@ -515,6 +522,11 @@ async function processGridTemplate(chatId: number, state: UserState) {
     
     const mp4Path = await convertWebmToMp4(webmPath, fileName, 30);
     
+    // Сохраняем финальный файл в output директорию с правильным именем
+    const finalOutputPath = path.join(outputDir, fileName);
+    await fsPromises.copyFile(mp4Path, finalOutputPath);
+    console.log(`[Grid] Файл сохранён: ${finalOutputPath}`);
+    
     await bot.sendVideo(chatId, mp4Path);
     
     // Для grid trimmedPaths = videoPaths, поэтому убираем дубликаты
@@ -648,6 +660,11 @@ async function processNewsTemplate(chatId: number, state: UserState) {
         // Продолжаем без озвучки
       }
     }
+    
+    // Сохраняем финальный файл в output директорию с правильным именем
+    const finalOutputPath = path.join(outputDir, fileName);
+    await fsPromises.copyFile(finalVideoPath, finalOutputPath);
+    console.log(`[News] Файл сохранён: ${finalOutputPath}`);
     
     await bot.sendVideo(chatId, finalVideoPath);
     
