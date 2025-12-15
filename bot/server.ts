@@ -531,7 +531,12 @@ async function processGridTemplate(chatId: number, state: UserState) {
     await fsPromises.copyFile(mp4Path, finalOutputPath);
     console.log(`[Grid] Файл сохранён: ${finalOutputPath}`);
     
-    await bot.sendVideo(chatId, mp4Path);
+    await bot.sendVideo(chatId, mp4Path, { 
+      caption: 'Ваше видео готово!'
+    }, { 
+      contentType: 'video/mp4',
+      filename: path.basename(mp4Path)
+    });
     
     // Для grid trimmedPaths = videoPaths, поэтому убираем дубликаты
     const filesToCleanup = [...new Set([...videoPaths, ...trimmedPaths, webmPath, mp4Path])];
@@ -670,7 +675,12 @@ async function processNewsTemplate(chatId: number, state: UserState) {
     await fsPromises.copyFile(finalVideoPath, finalOutputPath);
     console.log(`[News] Файл сохранён: ${finalOutputPath}`);
     
-    await bot.sendVideo(chatId, finalVideoPath);
+    await bot.sendVideo(chatId, finalVideoPath, { 
+      caption: 'Ваше видео готово!'
+    }, { 
+      contentType: 'video/mp4',
+      filename: path.basename(finalVideoPath)
+    });
     
     // Очищаем файлы (включая аудио, если было создано)
     const filesToCleanup = [...videoPaths, ...trimmedPaths, webmPath];
@@ -745,8 +755,31 @@ app.post('/upload-result/:id', (req, res) => {
   });
 });
 
-app.listen(Number(PORT), '0.0.0.0', () => {
+const server = app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`✅ Bot server running on port ${PORT}`);
   console.log(`✅ Health check available at http://0.0.0.0:${PORT}/health`);
   console.log(`✅ Bot is ready to receive messages`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+  
+  // Force exit after 10 seconds
+  setTimeout(() => {
+    console.log('Forcing exit after timeout');
+    process.exit(1);
+  }, 10000);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
 });
