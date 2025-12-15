@@ -422,10 +422,10 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         ctx.fill();
         ctx.restore();
         
-        // === Animated Arrow pointing to video ===
+        // === Animated Arrow pointing to video (from right side, pointing left) ===
         const t = (frameCount % 96) / 96; // 1.6s cycle
         const arrowOffset = Math.sin(t * Math.PI * 2) * 10;
-        const arrowX = imgX + imgW + 25;
+        const arrowX = imgX + imgW + 25; // справа от видео
         const arrowY = imageY + imgH / 2 + arrowOffset;
         
         ctx.save();
@@ -437,24 +437,24 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         
-        // Arrow body (thicker line)
+        // Arrow body (thicker line) - указывает влево на видео
         ctx.fillStyle = 'rgb(16,185,129)'; // emerald-500
         ctx.strokeStyle = 'rgba(255,255,255,0.5)';
         ctx.lineWidth = 4;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Draw arrow line
+        // Draw arrow line (влево)
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.lineTo(50, 0);
+        ctx.lineTo(-50, 0);
         ctx.stroke();
         
-        // Draw arrow head (triangle)
+        // Draw arrow head (triangle) - указывает влево
         ctx.beginPath();
-        ctx.moveTo(50, 0);
-        ctx.lineTo(35, -15);
-        ctx.lineTo(35, 15);
+        ctx.moveTo(-50, 0);
+        ctx.lineTo(-35, -15);
+        ctx.lineTo(-35, 15);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
@@ -474,18 +474,14 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         const aboutPadding = 32;
         const aboutRadius = 22;
         
+        // CTA текст должен совпадать с текстом в начитке (server.ts)
         // ВАЖНО: используем одинарные кавычки, чтобы внутренние "Время правды" не ломали JS
-        const aboutText1 = 'В последнем обращении Эгона Чолакяна на канале "Время правды" представлен глубокий анализ климатических изменений и их последствий для человечества.';
-        const aboutText2 = 'Эксперт детально разбирает причины учащения природных катаклизмов, опираясь на данные климатического доклада учёных АЛЛАТРА, и даёт прогнозы на ближайшие годы.';
+        const ctaText = 'О причинах учащения природных катастроф и прогнозах на ближайшие годы в последнем обращении Эгона Чолакяна на канале Время правды';
         
-        ctx.font = '600 40px Arial, sans-serif';
-        const aboutLines1 = getLines(ctx, aboutText1, aboutW - aboutPadding * 2);
-        ctx.font = '500 36px Arial, sans-serif';
-        const aboutLines2 = getLines(ctx, aboutText2, aboutW - aboutPadding * 2);
-        
-        const aboutLineHeight1 = 50;
-        const aboutLineHeight2 = 44;
-        const aboutTotalHeight = aboutLines1.length * aboutLineHeight1 + aboutLines2.length * aboutLineHeight2 + aboutPadding * 2 + 32;
+        ctx.font = '600 44px Arial, sans-serif';
+        const ctaLines = getLines(ctx, ctaText, aboutW - aboutPadding * 2);
+        const ctaLineHeight = 52;
+        const aboutTotalHeight = ctaLines.length * ctaLineHeight + aboutPadding * 2;
         
         // About block glow
         ctx.save();
@@ -516,27 +512,15 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         ctx.globalAlpha = 1.0;
         ctx.restore();
         
-        // About text 1
+        // CTA text (совпадает с начиткой)
         ctx.save();
         ctx.fillStyle = 'white';
-        ctx.font = '600 40px Arial, sans-serif';
+        ctx.font = '600 44px Arial, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        let currentY = aboutY + aboutPadding;
-        aboutLines1.forEach((line, i) => {
-            ctx.fillText(line, aboutX + aboutPadding, currentY + i * aboutLineHeight1);
-        });
-        ctx.restore();
-        
-        // About text 2
-        ctx.save();
-        ctx.fillStyle = 'rgba(255,255,255,0.9)';
-        ctx.font = '500 36px Arial, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        currentY = aboutY + aboutPadding + aboutLines1.length * aboutLineHeight1 + 32;
-        aboutLines2.forEach((line, i) => {
-            ctx.fillText(line, aboutX + aboutPadding, currentY + i * aboutLineHeight2);
+        const ctaTextY = aboutY + aboutPadding;
+        ctaLines.forEach((line, i) => {
+            ctx.fillText(line, aboutX + aboutPadding, ctaTextY + i * ctaLineHeight);
         });
         ctx.restore();
     };
