@@ -636,7 +636,7 @@ async function processNewsTemplate(chatId: number, state: UserState) {
         const TOTAL_DURATION = NEWS_CONTENT_DURATION + CTA_DURATION; // 37 секунд (30 контент + 7 CTA)
         
         // CTA текст для начитки (должен совпадать с текстом в videoRenderer.ts)
-        const CTA_TEXT = "О причинах учащения природных катастроф и прогнозах на ближайшие годы в последнем обращении Эгона Чалокяна на канале Время правды";
+        const CTA_TEXT = "О причинах учащения природных катастроф и прогнозах на ближайшие годы в последнем обращении Эгона Чолакяна на канале Время правды";
         
         audioPath = await generateNewsAudioTrack(
           state.newsTickers,
