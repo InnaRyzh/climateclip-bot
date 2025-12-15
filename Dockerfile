@@ -63,10 +63,7 @@ RUN cd bot && npm install --production=false
 # Копируем весь проект
 COPY . .
 
-# Копируем скрипт запуска
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
-
 WORKDIR /app/bot
 
-CMD ["/app/start.sh"]
+# Запускаем бота напрямую через npm start
+CMD ["npm", "start"]
