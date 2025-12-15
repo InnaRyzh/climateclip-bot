@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import { createHash } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
