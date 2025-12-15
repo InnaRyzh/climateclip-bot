@@ -85,7 +85,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     const NEWS_TICKER_COUNT = 3; // количество текстовых блоков от Perplexity
     const NEWS_CLIP_DURATION = 6; // длительность каждого ролика
     const NEWS_CLIP_COUNT = 5; // количество роликов
-    const CTA_DURATION = 12; // призыв к действию (увеличено для полной начитки)
+    const CTA_DURATION = 8; // призыв к действию
     // Вычисляем длительность каждого текстового блока:
     // Всего видео: 5 роликов * 6 сек = 30 сек + CTA 7 сек = 37 сек
     // Контент до CTA: 37 - 7 = 30 сек
@@ -1263,7 +1263,7 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
     // --- Snapshot режим для Grid: покадровый рендер с ffmpeg (image2pipe) ---
     if (options.renderMode === 'snapshot' && options.template === 'grid') {
       const fps = 30;
-      const totalDuration = 20 + 12; // GRID_CONTENT_DURATION + CTA_DURATION
+      const totalDuration = 20 + 8; // GRID_CONTENT_DURATION + CTA_DURATION
       const totalFrames = Math.round(totalDuration * fps);
       const outputPath = path.join(__dirname, 'temp', `${videoId}.mp4`);
 

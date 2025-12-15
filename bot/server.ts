@@ -633,7 +633,7 @@ async function processNewsTemplate(chatId: number, state: UserState) {
         const NEWS_HEADER_DURATION = 2; // секунды показа шапки (первые 2 секунды)
         const NEWS_CLIP_COUNT = 5; // количество роликов
         const NEWS_CLIP_DURATION = 6; // длительность каждого ролика
-        const CTA_DURATION = 12; // призыв к действию (увеличено для полной начитки)
+        const CTA_DURATION = 8; // призыв к действию
         const NEWS_TICKER_COUNT = 3;
         const NEWS_TICKER_DURATION = (NEWS_CLIP_COUNT * NEWS_CLIP_DURATION + CTA_DURATION - NEWS_INITIAL_SILENCE - CTA_DURATION) / NEWS_TICKER_COUNT;
         const NEWS_CONTENT_DURATION = NEWS_INITIAL_SILENCE + NEWS_TICKER_DURATION * NEWS_TICKER_COUNT;
