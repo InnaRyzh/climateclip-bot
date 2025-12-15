@@ -299,17 +299,43 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const imgRatio = ctaImage.width / ctaImage.height;
             imgH = imgW / imgRatio;
             
-            ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 30;
-            ctx.shadowOffsetY = 20;
+            // Скругление углов
+            const radius = 40; // Увеличено для более красивого скругления
             
-            const radius = 30;
+            // Рисуем размытую тень для объёма (несколько слоёв для более реалистичного эффекта)
+            ctx.save();
+            
+            // Первый слой тени (большое размытие, дальше)
+            ctx.shadowColor = 'rgba(0,0,0,0.4)';
+            ctx.shadowBlur = 60;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 30;
             ctx.beginPath();
             ctx.roundRect(imgX, imageY, imgW, imgH, radius);
-            ctx.closePath();
-            
             ctx.fill();
+            
+            // Второй слой тени (среднее размытие)
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 40;
+            ctx.shadowOffsetY = 20;
+            ctx.beginPath();
+            ctx.roundRect(imgX, imageY, imgW, imgH, radius);
+            ctx.fill();
+            
+            // Третий слой тени (близко к изображению)
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetY = 10;
+            ctx.beginPath();
+            ctx.roundRect(imgX, imageY, imgW, imgH, radius);
+            ctx.fill();
+            
+            // Рисуем само изображение с обрезкой по скруглённым углам
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.beginPath();
+            ctx.roundRect(imgX, imageY, imgW, imgH, radius);
             ctx.clip();
             
             ctx.drawImage(ctaImage, imgX, imageY, imgW, imgH);
@@ -320,7 +346,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         }
 
         // CTA текст в том же стиле, что и текстовые блоки (убираем кавычки и скобки)
-        let ctaText = "О причинах учащения природных катастроф и прогнозах на ближайшие годы - в климатическом докладе учёных АЛЛАТРА";
+        let ctaText = "О причинах учащения природных катастроф и прогнозах на ближайшие годы в последнем обращении Эгона Чалокяна на канале Время правды";
         ctaText = ctaText.replace(/["'«»„"]/g, '').replace(/[\[\]]/g, '').trim();
         
         // Позиционирование как у текстовых блоков (используем другие имена переменных, чтобы избежать конфликта)
