@@ -115,9 +115,10 @@ export async function generateSpeech(text: string, outputPath: string): Promise<
       text: expandedText,
       model_id: 'eleven_multilingual_v2', // Поддержка русского языка
       voice_settings: {
+        // Чуть более информативная подача «новостного» стиля
         stability: 0.5,
-        similarity_boost: 0.75,
-        style: 0.0,
+        similarity_boost: 0.78,
+        style: 0.2,
         use_speaker_boost: true
       }
     })
@@ -600,14 +601,16 @@ export async function generateNewsAudioTrack(
     const { path: ctaAudioPath, fromCache } = await getCachedCtaAudio(ctaText);
     const ctaTrimmedPath = path.join(tempDir, `cta_trimmed_${Date.now()}.aac`);
     const CTA_DURATION = 7; // Длительность CTA секции (увеличено на 2 секунды)
+    const CTA_SPEED = 1.1;  // Ускорение начитки для CTA
 
     try {
       if (!fromCache) {
         console.log(`[ElevenLabs] Озвучиваю CTA: "${ctaText.substring(0, 50)}..."`);
       }
       
-      // Настраиваем скорость под длительность CTA (7 секунд)
-      await adjustAudioSpeed(ctaAudioPath, CTA_DURATION, ctaTrimmedPath);
+      // Настраиваем скорость: чуть ускоряем (1.1x), затем подгоняем под 7 секунд
+      const targetDuration = CTA_DURATION / CTA_SPEED; // чтобы после ускорения уложиться в 7с
+      await adjustAudioSpeed(ctaAudioPath, targetDuration, ctaTrimmedPath);
       
       // CTA начинается после всех ticker'ов (30 секунда)
       const ctaStartTime = initialSilence + (tickers.length * tickerDuration); // 2 + 3 * 9.33 = 30
