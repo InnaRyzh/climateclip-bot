@@ -424,31 +424,45 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         
         // === Animated Arrow pointing to video ===
         const t = (frameCount % 96) / 96; // 1.6s cycle
-        const arrowOffset = Math.sin(t * Math.PI * 2) * 8;
-        const arrowX = imgX + imgW + 30;
+        const arrowOffset = Math.sin(t * Math.PI * 2) * 10;
+        const arrowX = imgX + imgW + 25;
         const arrowY = imageY + imgH / 2 + arrowOffset;
         
         ctx.save();
         ctx.translate(arrowX, arrowY);
         
-        // Arrow glow
-        ctx.shadowColor = 'rgba(16,185,129,0.6)';
-        ctx.shadowBlur = 25;
+        // Arrow glow background
+        ctx.shadowColor = 'rgba(16,185,129,0.8)';
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
         
-        // Arrow body
+        // Arrow body (thicker line)
         ctx.fillStyle = 'rgb(16,185,129)'; // emerald-500
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Draw arrow line
         ctx.beginPath();
-        // Arrow line
         ctx.moveTo(0, 0);
-        ctx.lineTo(40, 0);
-        // Arrow head
-        ctx.lineTo(30, -12);
-        ctx.moveTo(40, 0);
-        ctx.lineTo(30, 12);
+        ctx.lineTo(50, 0);
         ctx.stroke();
+        
+        // Draw arrow head (triangle)
+        ctx.beginPath();
+        ctx.moveTo(50, 0);
+        ctx.lineTo(35, -15);
+        ctx.lineTo(35, 15);
+        ctx.closePath();
         ctx.fill();
+        ctx.stroke();
+        
+        // Add white outline for better visibility
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
         
         ctx.restore();
         
