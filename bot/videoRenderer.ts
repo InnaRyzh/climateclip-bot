@@ -330,7 +330,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         const imgW = 800;
         let imgH = 0;
         let imgX = (WIDTH - imgW) / 2;
-        let imageY = 200;
+        let imageY = 350; // Опущено ниже (было 200)
         
         if (ctaImage && ctaImage.complete) {
             const imgRatio = ctaImage.width / ctaImage.height;
@@ -469,7 +469,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         // === About Egon Cholakyan Block ===
         const aboutMarginX = 88;
         const aboutW = WIDTH - aboutMarginX * 2;
-        const aboutY = imageY + imgH + 80;
+        const aboutY = imageY + imgH + 140; // Увеличено расстояние между фото и текстом (было 80)
         const aboutX = aboutMarginX;
         const aboutPadding = 32;
         const aboutRadius = 22;
