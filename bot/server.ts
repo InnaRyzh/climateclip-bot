@@ -265,11 +265,15 @@ app.use('/temp', express.static(tempDir, {
 }));
 
 const assetsDir = path.join(__dirname, 'assets');
-app.use('/assets', express.static(assetsDir, {
-  setHeaders: (res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-}));
+if (fs.existsSync(assetsDir)) {
+  app.use('/assets', express.static(assetsDir, {
+    setHeaders: (res) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+  }));
+} else {
+  console.warn('[Assets] Директория assets не найдена, CTA картинка может не подгрузиться');
+}
 
 interface UserState {
   step: 'start' | 'waiting_template' | 'waiting_videos' | 'waiting_info' | 'ready';
