@@ -1069,11 +1069,21 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
       const imagesDir = path.join(__dirname, 'assets', 'images');
       try {
         const imageFiles = await fs.readdir(imagesDir);
-        const imageFile = imageFiles.find(f => /\.(jpg|jpeg|png|webp)$/i.test(f));
-        if (imageFile) {
-          options.ctaImageUrl = `http://localhost:${serverPort}/assets/images/${imageFile}`;
+        const imageEntries = await Promise.all(imageFiles
+          .filter(f => /\.(jpg|jpeg|png|webp)$/i.test(f))
+          .map(async f => {
+            const stat = await fs.stat(path.join(imagesDir, f));
+            return { file: f, mtime: stat.mtimeMs };
+          }));
+        // Берём самое новое изображение
+        const latest = imageEntries.sort((a, b) => b.mtime - a.mtime)[0];
+        if (latest) {
+          options.ctaImageUrl = `http://localhost:${serverPort}/assets/images/${latest.file}`;
+          console.log('[CTA] Используем изображение:', options.ctaImageUrl);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('CTA image lookup failed', e);
+      }
     }
     
     const browserVideoUrls = await prepareVideosForBrowser(options.videos, serverPort);

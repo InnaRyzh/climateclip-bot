@@ -571,17 +571,40 @@ export async function generateNewsAudioTrack(
     }
   }
 
+  // --- Кэширование CTA озвучки, чтобы не тратить кредиты на неизменяемый текст ---
+  const cacheDir = path.join(__dirname, 'temp', 'audio_cache');
+  await fs.mkdir(cacheDir, { recursive: true });
+
+  const getCachedCtaAudio = async (text: string): Promise<{ path: string; fromCache: boolean }> => {
+    const normalized = text.trim();
+    const hash = createHash('sha1')
+      .update(normalized + ELEVENLABS_VOICE_ID)
+      .digest('hex');
+    const cachedPath = path.join(cacheDir, `cta_${hash}.mp3`);
+    try {
+      await fs.access(cachedPath);
+      console.log(`[ElevenLabs] CTA из кэша: ${cachedPath}`);
+      return { path: cachedPath, fromCache: true };
+    } catch {
+      // not cached
+    }
+    const tmpPath = path.join(cacheDir, `cta_${hash}_tmp.mp3`);
+    await generateSpeech(normalized, tmpPath);
+    await fs.rename(tmpPath, cachedPath);
+    console.log(`[ElevenLabs] CTA сохранён в кэш: ${cachedPath}`);
+    return { path: cachedPath, fromCache: false };
+  };
+
   // Озвучиваем CTA текст, если он предоставлен
   if (ctaText && ctaText.trim().length > 0) {
-    const ctaAudioPath = path.join(tempDir, `cta_${Date.now()}.mp3`);
+    const { path: ctaAudioPath, fromCache } = await getCachedCtaAudio(ctaText);
     const ctaTrimmedPath = path.join(tempDir, `cta_trimmed_${Date.now()}.aac`);
     const CTA_DURATION = 7; // Длительность CTA секции (увеличено на 2 секунды)
 
     try {
-      console.log(`[ElevenLabs] Озвучиваю CTA: "${ctaText.substring(0, 50)}..."`);
-      
-      // Генерируем речь для CTA через ElevenLabs
-      await generateSpeech(ctaText.trim(), ctaAudioPath);
+      if (!fromCache) {
+        console.log(`[ElevenLabs] Озвучиваю CTA: "${ctaText.substring(0, 50)}..."`);
+      }
       
       // Настраиваем скорость под длительность CTA (7 секунд)
       await adjustAudioSpeed(ctaAudioPath, CTA_DURATION, ctaTrimmedPath);
@@ -595,8 +618,7 @@ export async function generateNewsAudioTrack(
         duration: CTA_DURATION
       });
 
-      // Удаляем исходный файл
-      await fs.unlink(ctaAudioPath).catch(() => {});
+      // Кэшированный файл не трогаем; временный (если был) уже переименован в кэш
       
     } catch (error) {
       console.error(`[ElevenLabs] Ошибка при озвучке CTA:`, error);
