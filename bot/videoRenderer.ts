@@ -284,164 +284,245 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     };
 
     const drawImageCTA = (ctx, frameCount, ctaImage) => {
-        ctx.fillStyle = '#0f0f12'; 
+        // === PREMIUM DESIGN: Mesh Gradient Background ===
+        // Базовый тёмный фон
+        ctx.fillStyle = '#0b1016';
         ctx.fillRect(0, 0, WIDTH, HEIGHT);
         
-        // Изображение CTA (если есть)
-        const centerX = WIDTH / 2;
+        // Mesh gradient - радиальные градиенты для глубины
+        const gradient1 = ctx.createRadialGradient(WIDTH * 0.2, HEIGHT * 0.2, 0, WIDTH * 0.2, HEIGHT * 0.2, WIDTH * 0.7);
+        gradient1.addColorStop(0, 'rgba(24,115,125,0.35)');
+        gradient1.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient1;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
         
-        let imageY = 300; 
-        const imgW = 700; 
+        const gradient2 = ctx.createRadialGradient(WIDTH * 0.8, HEIGHT * 0.3, 0, WIDTH * 0.8, HEIGHT * 0.3, WIDTH * 0.8);
+        gradient2.addColorStop(0, 'rgba(160,32,32,0.30)');
+        gradient2.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient2;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        
+        const gradient3 = ctx.createRadialGradient(WIDTH * 0.4, HEIGHT * 0.8, 0, WIDTH * 0.4, HEIGHT * 0.8, WIDTH * 0.7);
+        gradient3.addColorStop(0, 'rgba(32,78,98,0.25)');
+        gradient3.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient3;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        
+        // Линейный градиент для общего тона
+        const linearGrad = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT);
+        linearGrad.addColorStop(0, '#0b1016');
+        linearGrad.addColorStop(0.5, '#0a0f14');
+        linearGrad.addColorStop(1, '#0e141b');
+        ctx.fillStyle = linearGrad;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        
+        // Noise overlay (film grain) - рисуем случайные точки
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        for (let i = 0; i < 800; i++) {
+            const x = Math.random() * WIDTH;
+            const y = Math.random() * HEIGHT;
+            const size = Math.random() * 1.5;
+            ctx.fillRect(x, y, size, size);
+        }
+        
+        // === Main Video Card with Glassmorphism ===
+        const cardPadding = 40;
+        const imgW = 800;
         let imgH = 0;
         let imgX = (WIDTH - imgW) / 2;
-
+        let imageY = 200;
+        
         if (ctaImage && ctaImage.complete) {
             const imgRatio = ctaImage.width / ctaImage.height;
             imgH = imgW / imgRatio;
-            
-            // Скругление углов
-            const radius = 40; // Увеличено для более красивого скругления
-            
-            // Рисуем размытую тень для объёма (несколько слоёв для более реалистичного эффекта)
+        } else {
+            imgH = 520;
+        }
+        
+        const cardRadius = 32;
+        const cardX = imgX - cardPadding;
+        const cardY = imageY - cardPadding;
+        const cardW = imgW + (cardPadding * 2);
+        const cardH = imgH + (cardPadding * 2);
+        
+        // Glassmorphism glow behind card
+        ctx.save();
+        ctx.shadowColor = 'rgba(255,255,255,0.06)';
+        ctx.shadowBlur = 80;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.beginPath();
+        ctx.roundRect(cardX - 32, cardY - 32, cardW + 64, cardH + 64, cardRadius + 10);
+        ctx.fill();
+        ctx.restore();
+        
+        // Glassmorphism card background
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, cardRadius);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Blur effect simulation (layered semi-transparent rectangles)
+        for (let i = 0; i < 3; i++) {
+            ctx.globalAlpha = 0.15;
+            ctx.fillStyle = 'rgba(255,255,255,0.03)';
+            ctx.fillRect(cardX + i * 2, cardY + i * 2, cardW - i * 4, cardH - i * 4);
+        }
+        ctx.globalAlpha = 1.0;
+        ctx.restore();
+        
+        // Video thumbnail with rounded corners
+        if (ctaImage && ctaImage.complete) {
+            const imgRadius = 28;
             ctx.save();
-            
-            // Первый слой тени (большое размытие, дальше)
-            ctx.shadowColor = 'rgba(0,0,0,0.4)';
-            ctx.shadowBlur = 60;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 30;
             ctx.beginPath();
-            ctx.roundRect(imgX, imageY, imgW, imgH, radius);
-            ctx.fill();
-            
-            // Второй слой тени (среднее размытие)
-            ctx.shadowColor = 'rgba(0,0,0,0.3)';
-            ctx.shadowBlur = 40;
-            ctx.shadowOffsetY = 20;
-            ctx.beginPath();
-            ctx.roundRect(imgX, imageY, imgW, imgH, radius);
-            ctx.fill();
-            
-            // Третий слой тени (близко к изображению)
-            ctx.shadowColor = 'rgba(0,0,0,0.2)';
-            ctx.shadowBlur = 20;
-            ctx.shadowOffsetY = 10;
-            ctx.beginPath();
-            ctx.roundRect(imgX, imageY, imgW, imgH, radius);
-            ctx.fill();
-            
-            // Рисуем само изображение с обрезкой по скруглённым углам
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
-            ctx.shadowOffsetY = 0;
-            ctx.beginPath();
-            ctx.roundRect(imgX, imageY, imgW, imgH, radius);
+            ctx.roundRect(imgX, imageY, imgW, imgH, imgRadius);
             ctx.clip();
-            
             ctx.drawImage(ctaImage, imgX, imageY, imgW, imgH);
             ctx.restore();
-        } else {
-            imgH = 600; 
-            imageY = HEIGHT / 2 - 400;
-        }
-
-        // CTA текст в том же стиле, что и текстовые блоки (убираем кавычки и скобки)
-        let ctaText = "О причинах учащения природных катастроф и прогнозах на ближайшие годы в последнем обращении Эгона Чолакяна на канале Время правды";
-        ctaText = ctaText.replace(/["'«»„"]/g, '').replace(/[\[\]]/g, '').trim();
-        
-        // Позиционирование как у текстовых блоков (используем другие имена переменных, чтобы избежать конфликта)
-        const ctaSafeBottom = HEIGHT - 400;
-        const ctaQuoteSize = 50;
-        const ctaSafeMarginX = 160;
-        const ctaStartX = ctaSafeMarginX;
-        
-        let ctaFontSize = 32;
-        ctx.font = \`bold \${ctaFontSize}px Arial, sans-serif\`;
-        const ctaMaxTextW = WIDTH - ctaSafeMarginX * 2 - ctaQuoteSize - 40;
-        let ctaLines = getLines(ctx, ctaText, ctaMaxTextW);
-        
-        // Автоматическое уменьшение шрифта если не влезает
-        while (ctaLines.length > 10 && ctaFontSize > 20) {
-            ctaFontSize -= 2;
-            ctx.font = \`bold \${ctaFontSize}px Arial, sans-serif\`;
-            ctaLines = getLines(ctx, ctaText, ctaMaxTextW);
+            
+            // Inner white border
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(imgX, imageY, imgW, imgH, imgRadius);
+            ctx.stroke();
         }
         
-        const ctaGap = 2;
-        const ctaBoxHeight = ctaFontSize + 4;
-        const ctaTotalH = (ctaLines.length * ctaBoxHeight) + ((ctaLines.length - 1) * ctaGap);
-        const ctaStartY = ctaSafeBottom - ctaTotalH;
+        // Play icon overlay
+        const playIconSize = 80;
+        const playIconX = imgX + imgW / 2 - playIconSize / 2;
+        const playIconY = imageY + imgH / 2 - playIconSize / 2;
         
-        // Рисуем иконку кавычек слева (как у текстовых блоков)
-        drawQuoteIcon(ctx, ctaStartX, ctaStartY, ctaQuoteSize);
+        // Play button background (glassmorphism)
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(imgX + imgW / 2, imageY + imgH / 2, playIconSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
         
-        const ctaTextX = ctaStartX + ctaQuoteSize + 12;
+        // Play triangle
+        ctx.save();
+        ctx.fillStyle = 'white';
+        ctx.translate(imgX + imgW / 2, imageY + imgH / 2);
+        ctx.beginPath();
+        ctx.moveTo(-15, -20);
+        ctx.lineTo(-15, 20);
+        ctx.lineTo(20, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
         
-        // Разбиваем текст на части для выделения красным "ученых АЛЛАТРА"
-        const ctaHighlightPhrase = "учёных АЛЛАТРА";
-        const ctaHighlightPhraseUpper = "УЧЁНЫХ АЛЛАТРА";
-        
-        ctaLines.forEach((ctaLine, ctaI) => {
-            const ctaY = ctaStartY + (ctaI * (ctaBoxHeight + ctaGap));
-            
-            // Проверяем, содержит ли строка фразу для выделения
-            const ctaLineUpper = ctaLine.toUpperCase();
-            const ctaHasHighlight = ctaLineUpper.includes(ctaHighlightPhraseUpper);
-            
-            // Измеряем ширину текста для плашки
-            const ctaTextW = ctx.measureText(ctaLine).width;
-            
-            // Рисуем белую плашку
-            ctx.fillStyle = 'white';
-            ctx.fillRect(ctaTextX, ctaY, ctaTextW + 20, ctaBoxHeight);
-            
-            // Рисуем текст с выделением красным
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            
-            if (ctaHasHighlight) {
-                // Разбиваем строку на части до и после выделяемой фразы
-                const ctaHighlightIndex = ctaLineUpper.indexOf(ctaHighlightPhraseUpper);
-                const ctaBeforeText = ctaLine.substring(0, ctaHighlightIndex);
-                const ctaHighlightText = ctaLine.substring(ctaHighlightIndex, ctaHighlightIndex + ctaHighlightPhrase.length);
-                const ctaAfterText = ctaLine.substring(ctaHighlightIndex + ctaHighlightPhrase.length);
-                
-                let ctaCurrentX = ctaTextX + 10;
-                
-                // Рисуем текст до выделения (черный)
-                if (ctaBeforeText) {
-                    ctx.fillStyle = 'black';
-                    ctx.fillText(ctaBeforeText, ctaCurrentX, ctaY + 2);
-                    ctaCurrentX += ctx.measureText(ctaBeforeText).width;
-                }
-                
-                // Рисуем выделенную фразу (красный)
-                ctx.fillStyle = '#FF0000';
-                ctx.fillText(ctaHighlightText, ctaCurrentX, ctaY + 2);
-                ctaCurrentX += ctx.measureText(ctaHighlightText).width;
-                
-                // Рисуем текст после выделения (черный)
-                if (ctaAfterText) {
-                    ctx.fillStyle = 'black';
-                    ctx.fillText(ctaAfterText, ctaCurrentX, ctaY + 2);
-                }
-            } else {
-                // Обычный черный текст
-                ctx.fillStyle = 'black';
-                ctx.fillText(ctaLine, ctaTextX + 10, ctaY + 2);
-            }
-        });
-        
-        const t = (frameCount % 60) / 60;
-        const handOffset = Math.sin(t * Math.PI * 2) * 10;
-        
-        const handX = imgX + imgW + 20; 
-        const handY = imageY + imgH - 50;
+        // === Animated Arrow pointing to video ===
+        const t = (frameCount % 96) / 96; // 1.6s cycle
+        const arrowOffset = Math.sin(t * Math.PI * 2) * 8;
+        const arrowX = imgX + imgW + 30;
+        const arrowY = imageY + imgH / 2 + arrowOffset;
         
         ctx.save();
-        ctx.translate(handX - handOffset, handY + handOffset);
-        ctx.rotate(-Math.PI / 4);
-        drawHandCursorInner(ctx, 0, 0, 2.5); 
+        ctx.translate(arrowX, arrowY);
+        
+        // Arrow glow
+        ctx.shadowColor = 'rgba(16,185,129,0.6)';
+        ctx.shadowBlur = 25;
+        
+        // Arrow body
+        ctx.fillStyle = 'rgb(16,185,129)'; // emerald-500
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Arrow line
+        ctx.moveTo(0, 0);
+        ctx.lineTo(40, 0);
+        // Arrow head
+        ctx.lineTo(30, -12);
+        ctx.moveTo(40, 0);
+        ctx.lineTo(30, 12);
+        ctx.stroke();
+        ctx.fill();
+        
+        ctx.restore();
+        
+        // === About Egon Cholakyan Block ===
+        const aboutMarginX = 88;
+        const aboutW = WIDTH - aboutMarginX * 2;
+        const aboutY = imageY + imgH + 80;
+        const aboutX = aboutMarginX;
+        const aboutPadding = 32;
+        const aboutRadius = 22;
+        
+        const aboutText1 = "В последнем обращении Эгона Чолакяна на канале \"Время правды\" представлен глубокий анализ климатических изменений и их последствий для человечества.";
+        const aboutText2 = "Эксперт детально разбирает причины учащения природных катаклизмов, опираясь на данные климатического доклада учёных АЛЛАТРА, и даёт прогнозы на ближайшие годы.";
+        
+        ctx.font = '600 40px Arial, sans-serif';
+        const aboutLines1 = getLines(ctx, aboutText1, aboutW - aboutPadding * 2);
+        ctx.font = '500 36px Arial, sans-serif';
+        const aboutLines2 = getLines(ctx, aboutText2, aboutW - aboutPadding * 2);
+        
+        const aboutLineHeight1 = 50;
+        const aboutLineHeight2 = 44;
+        const aboutTotalHeight = aboutLines1.length * aboutLineHeight1 + aboutLines2.length * aboutLineHeight2 + aboutPadding * 2 + 32;
+        
+        // About block glow
+        ctx.save();
+        ctx.shadowColor = 'rgba(255,255,255,0.04)';
+        ctx.shadowBlur = 60;
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.beginPath();
+        ctx.roundRect(aboutX - 18, aboutY - 18, aboutW + 36, aboutTotalHeight + 36, aboutRadius + 6);
+        ctx.fill();
+        ctx.restore();
+        
+        // About block background (glassmorphism)
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(aboutX, aboutY, aboutW, aboutTotalHeight, aboutRadius);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Blur simulation
+        for (let i = 0; i < 2; i++) {
+            ctx.globalAlpha = 0.2;
+            ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            ctx.fillRect(aboutX + i, aboutY + i, aboutW - i * 2, aboutTotalHeight - i * 2);
+        }
+        ctx.globalAlpha = 1.0;
+        ctx.restore();
+        
+        // About text 1
+        ctx.save();
+        ctx.fillStyle = 'white';
+        ctx.font = '600 40px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        let currentY = aboutY + aboutPadding;
+        aboutLines1.forEach((line, i) => {
+            ctx.fillText(line, aboutX + aboutPadding, currentY + i * aboutLineHeight1);
+        });
+        ctx.restore();
+        
+        // About text 2
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.font = '500 36px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        currentY = aboutY + aboutPadding + aboutLines1.length * aboutLineHeight1 + 32;
+        aboutLines2.forEach((line, i) => {
+            ctx.fillText(line, aboutX + aboutPadding, currentY + i * aboutLineHeight2);
+        });
         ctx.restore();
     };
 
