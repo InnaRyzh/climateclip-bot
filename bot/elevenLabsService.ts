@@ -601,7 +601,7 @@ export async function generateNewsAudioTrack(
   if (ctaText && ctaText.trim().length > 0) {
     const { path: ctaAudioPath, fromCache } = await getCachedCtaAudio(ctaText);
     const ctaTrimmedPath = path.join(tempDir, `cta_trimmed_${Date.now()}.aac`);
-    const CTA_DURATION = 7; // Длительность CTA секции (увеличено на 2 секунды)
+    const CTA_DURATION = 12; // Длительность CTA секции (увеличено для полной начитки)
     const CTA_SPEED = 1.1;  // Ускорение начитки для CTA
 
     try {

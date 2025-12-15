@@ -85,7 +85,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     const NEWS_TICKER_COUNT = 3; // количество текстовых блоков от Perplexity
     const NEWS_CLIP_DURATION = 6; // длительность каждого ролика
     const NEWS_CLIP_COUNT = 5; // количество роликов
-    const CTA_DURATION = 7; // призыв к действию (увеличено на 2 секунды)
+    const CTA_DURATION = 12; // призыв к действию (увеличено для полной начитки)
     // Вычисляем длительность каждого текстового блока:
     // Всего видео: 5 роликов * 6 сек = 30 сек + CTA 7 сек = 37 сек
     // Контент до CTA: 37 - 7 = 30 сек
@@ -424,7 +424,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         ctx.restore();
         
         // === Animated Hand Cursor (heartbeat pulse animation) ===
-        if (handImage && handImage.complete) {
+        if (handImage && handImage.width > 0 && handImage.height > 0) {
             const t = (frameCount % 60) / 60; // 1 секунда цикл (60 FPS)
             // Анимация пульсации в стиле биения сердца (быстрое увеличение, медленное уменьшение)
             // Используем более реалистичную кривую: быстро растёт, медленно спадает
@@ -448,6 +448,9 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             const handY = imageY + imgH - scaledSize - 30;
             
             ctx.save();
+            
+            // Используем globalCompositeOperation для удаления чёрного фона
+            ctx.globalCompositeOperation = 'source-over';
             
             // Создаём временный canvas для обработки чёрного фона
             const tempCanvas = document.createElement('canvas');
@@ -604,9 +607,17 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
             try {
                 const handImageUrl = 'http://localhost:' + serverPort + '/assets/images/hand-cursor.png';
                 handImage = await loadImage(handImageUrl);
-                console.log('Hand cursor image loaded');
+                console.log('Hand cursor image loaded:', handImage.width, 'x', handImage.height);
+                // Ждём полной загрузки изображения
+                if (!handImage.complete) {
+                    await new Promise((resolve, reject) => {
+                        handImage.onload = resolve;
+                        handImage.onerror = reject;
+                    });
+                }
             } catch (e) { 
                 console.warn('Failed to load hand cursor image:', e); 
+                console.warn('Hand image URL was:', 'http://localhost:' + serverPort + '/assets/images/hand-cursor.png');
             }
 
             const canvas = document.getElementById('canvas');
@@ -1252,7 +1263,7 @@ export async function renderVideo(options: RenderOptions, serverPort: number = 3
     // --- Snapshot режим для Grid: покадровый рендер с ffmpeg (image2pipe) ---
     if (options.renderMode === 'snapshot' && options.template === 'grid') {
       const fps = 30;
-      const totalDuration = 20 + 5; // GRID_CONTENT_DURATION + CTA_DURATION
+      const totalDuration = 20 + 12; // GRID_CONTENT_DURATION + CTA_DURATION
       const totalFrames = Math.round(totalDuration * fps);
       const outputPath = path.join(__dirname, 'temp', `${videoId}.mp4`);
 
