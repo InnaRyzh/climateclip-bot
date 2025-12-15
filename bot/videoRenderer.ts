@@ -68,6 +68,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
     const options = ${serializedOptions};
     const videoUrls = ${serializedVideoUrls};
     const uploadUrl = "${uploadUrl}";
+    const serverPort = ${serverPort};
     const renderMode = options.renderMode || 'realtime';
 
     // Единое разрешение 1080x1920 для сохранения пропорций текста/элементов
@@ -283,7 +284,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         ctx.restore();
     };
 
-    const drawImageCTA = (ctx, frameCount, ctaImage) => {
+    const drawImageCTA = (ctx, frameCount, ctaImage, handImage) => {
         // === PREMIUM DESIGN: Mesh Gradient Background ===
         // Базовый тёмный фон
         ctx.fillStyle = '#0b1016';
@@ -422,49 +423,66 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         ctx.fill();
         ctx.restore();
         
-        // === Animated Arrow pointing to video (from right side, pointing left) ===
-        const t = (frameCount % 96) / 96; // 1.6s cycle
-        const arrowOffset = Math.sin(t * Math.PI * 2) * 10;
-        const arrowX = imgX + imgW + 25; // справа от видео
-        const arrowY = imageY + imgH / 2 + arrowOffset;
-        
-        ctx.save();
-        ctx.translate(arrowX, arrowY);
-        
-        // Arrow glow background
-        ctx.shadowColor = 'rgba(16,185,129,0.8)';
-        ctx.shadowBlur = 30;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        
-        // Arrow body (thicker line) - указывает влево на видео
-        ctx.fillStyle = 'rgb(16,185,129)'; // emerald-500
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        // Draw arrow line (влево)
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(-50, 0);
-        ctx.stroke();
-        
-        // Draw arrow head (triangle) - указывает влево
-        ctx.beginPath();
-        ctx.moveTo(-50, 0);
-        ctx.lineTo(-35, -15);
-        ctx.lineTo(-35, 15);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-        // Add white outline for better visibility
-        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        ctx.restore();
+        // === Animated Hand Cursor (heartbeat pulse animation) ===
+        if (handImage && handImage.complete) {
+            const t = (frameCount % 60) / 60; // 1 секунда цикл (60 FPS)
+            // Анимация пульсации в стиле биения сердца (быстрое увеличение, медленное уменьшение)
+            // Используем более реалистичную кривую: быстро растёт, медленно спадает
+            let pulseScale;
+            if (t < 0.3) {
+                // Быстрое увеличение (первые 30% цикла)
+                const localT = t / 0.3;
+                pulseScale = 1.0 + (localT * localT) * 0.18; // Квадратичный рост до 1.18
+            } else {
+                // Медленное уменьшение (остальные 70% цикла)
+                const localT = (t - 0.3) / 0.7;
+                pulseScale = 1.18 - (localT * localT) * 0.18; // Квадратичное уменьшение до 1.0
+            }
+            
+            // Размер руки
+            const handSize = 120;
+            const scaledSize = handSize * pulseScale;
+            
+            // Позиция: правый нижний угол фото
+            const handX = imgX + imgW - scaledSize - 30;
+            const handY = imageY + imgH - scaledSize - 30;
+            
+            ctx.save();
+            
+            // Создаём временный canvas для обработки чёрного фона
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = handImage.width;
+            tempCanvas.height = handImage.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Рисуем изображение на временном canvas
+            tempCtx.drawImage(handImage, 0, 0);
+            
+            // Получаем ImageData для обработки пикселей
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imageData.data;
+            
+            // Делаем чёрный фон прозрачным (порог для определения чёрного цвета)
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                // Если пиксель очень тёмный (почти чёрный), делаем его прозрачным
+                if (r < 50 && g < 50 && b < 50) {
+                    data[i + 3] = 0; // alpha = 0 (прозрачный)
+                }
+            }
+            
+            // Применяем обработанные данные обратно
+            tempCtx.putImageData(imageData, 0, 0);
+            
+            // Рисуем обработанное изображение с анимацией пульсации
+            ctx.translate(handX + scaledSize / 2, handY + scaledSize / 2);
+            ctx.scale(pulseScale, pulseScale);
+            ctx.drawImage(tempCanvas, -handSize / 2, -handSize / 2, handSize, handSize);
+            
+            ctx.restore();
+        }
         
         // === About Egon Cholakyan Block ===
         const aboutMarginX = 88;
@@ -579,6 +597,16 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                 try {
                     ctaImage = await loadImage(options.ctaImageUrl);
                 } catch (e) { console.warn('Failed to load CTA image:', e); }
+            }
+            
+            // Загружаем изображение руки для CTA
+            let handImage = null;
+            try {
+                const handImageUrl = 'http://localhost:' + serverPort + '/assets/images/hand-cursor.png';
+                handImage = await loadImage(handImageUrl);
+                console.log('Hand cursor image loaded');
+            } catch (e) { 
+                console.warn('Failed to load hand cursor image:', e); 
             }
 
             const canvas = document.getElementById('canvas');
@@ -717,7 +745,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                         }
                     } else {
                         const frameCount = Math.floor(elapsed * FPS);
-                        drawImageCTA(ctx, frameCount, ctaImage);
+                        drawImageCTA(ctx, frameCount, ctaImage, handImage);
                     }
                 };
 
@@ -1111,7 +1139,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
                                  v.volume = 0;
                              });
                         }
-                        drawImageCTA(ctx, frameCount, ctaImage);
+                        drawImageCTA(ctx, frameCount, ctaImage, handImage);
                     }
                     frameCount++;
                     requestAnimationFrame(loop);
