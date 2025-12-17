@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 // ВАЖНО: API ключ должен быть установлен через переменную окружения ELEVENLABS_API_KEY
 // Для продакшена на Railway установите переменную окружения ELEVENLABS_API_KEY
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_fb1ec1e0c207932d4bcb9dfd6dc2bd67713afac1b69e3b99';
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'LHi3adMlU7AICv8Yxpmm';
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'txnCCHHGKmYIwrn7HfHQ';
 
 // Логируем используемый голос для отладки
 console.log(`[ElevenLabs] Используется голос ID: ${ELEVENLABS_VOICE_ID}${process.env.ELEVENLABS_VOICE_ID ? ' (из переменной окружения)' : ' (по умолчанию)'}`);
