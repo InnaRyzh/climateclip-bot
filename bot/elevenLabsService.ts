@@ -30,18 +30,32 @@ interface AudioSegment {
 function expandAbbreviations(text: string): string {
   let expanded = text;
   
-  // Словарь сокращений и их расшифровок
+  // Сначала обрабатываем числа с единицами измерения (приоритет перед общими сокращениями)
+  // Это нужно для правильной обработки, например, "50 м/с" -> "50 метров в секунду"
+  expanded = expanded.replace(/(\d+)\s*км\/ч/gi, '$1 километров в час');
+  expanded = expanded.replace(/(\d+)\s*км\/час/gi, '$1 километров в час');
+  expanded = expanded.replace(/(\d+)\s*м\/с/gi, '$1 метров в секунду');
+  expanded = expanded.replace(/(\d+)\s*мг\/м³/gi, '$1 миллиграммов на кубический метр');
+  expanded = expanded.replace(/(\d+)\s*мм/gi, '$1 миллиметров');
+  expanded = expanded.replace(/(\d+)\s*см/gi, '$1 сантиметров');
+  expanded = expanded.replace(/(\d+)\s*м\b/gi, '$1 метров');
+  expanded = expanded.replace(/(\d+)\s*км\b/gi, '$1 километров');
+  expanded = expanded.replace(/(\d+)\s*°C/gi, '$1 градусов по Цельсию');
+  expanded = expanded.replace(/(\d+)\s*°F/gi, '$1 градусов по Фаренгейту');
+  expanded = expanded.replace(/(\d+)\s*%/gi, '$1 процентов');
+  
+  // Словарь сокращений и их расшифровок (для случаев без чисел перед ними)
   const abbreviations: Record<string, string> = {
     'км/ч': 'километров в час',
     'км/час': 'километров в час',
+    'м/с': 'метров в секунду',
+    'мг/м³': 'миллиграммов на кубический метр',
     'мм': 'миллиметров',
     'см': 'сантиметров',
     'м': 'метров',
     'км': 'километров',
     '°C': 'градусов по Цельсию',
     '°F': 'градусов по Фаренгейту',
-    'м/с': 'метров в секунду',
-    'мг/м³': 'миллиграммов на кубический метр',
     '%': 'процентов',
     'млн': 'миллионов',
     'млрд': 'миллиардов',
@@ -57,7 +71,6 @@ function expandAbbreviations(text: string): string {
     'дн': 'дней',
     'нед': 'недель',
     'мес': 'месяцев',
-    'г': 'годов',
     'гг': 'годов',
     'д.н.э.': 'до нашей эры',
     'н.э.': 'нашей эры',
@@ -69,21 +82,30 @@ function expandAbbreviations(text: string): string {
     'и т.п.': 'и тому подобное',
   };
   
-  // Заменяем сокращения (с учётом регистра и границ слов)
+  // Заменяем сокращения (с учётом регистра)
+  // Для сокращений со слэшем используем более гибкое регулярное выражение
   for (const [abbr, expansion] of Object.entries(abbreviations)) {
-    // Создаём регулярное выражение для поиска сокращения как отдельного слова
-    const regex = new RegExp(`\\b${abbr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-    expanded = expanded.replace(regex, expansion);
+    // Экранируем специальные символы регулярных выражений
+    const escaped = abbr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Для сокращений со слэшем или другими спецсимволами не используем \b,
+    // так как они не работают с не-буквенными символами
+    let regex: RegExp;
+    if (abbr.includes('/') || abbr.includes('.') || abbr.includes('°') || abbr.includes('%')) {
+      // Для сокращений со спецсимволами ищем как есть, но с проверкой границ
+      // (не буква/не цифра перед и после, либо начало/конец строки)
+      // Используем совместимый вариант без lookbehind/lookahead
+      regex = new RegExp(`(^|[^\\w])${escaped}(?![\\w])`, 'gi');
+    } else {
+      // Для обычных сокращений используем границы слов
+      regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+    }
+    
+    expanded = expanded.replace(regex, (match, before) => {
+      // Сохраняем символ перед сокращением (если был)
+      return (before || '') + expansion;
+    });
   }
-  
-  // Обработка чисел с единицами измерения (например, "50 км/ч" -> "50 километров в час")
-  expanded = expanded.replace(/(\d+)\s*км\/ч/gi, '$1 километров в час');
-  expanded = expanded.replace(/(\d+)\s*мм/gi, '$1 миллиметров');
-  expanded = expanded.replace(/(\d+)\s*см/gi, '$1 сантиметров');
-  expanded = expanded.replace(/(\d+)\s*м\b/gi, '$1 метров');
-  expanded = expanded.replace(/(\d+)\s*км\b/gi, '$1 километров');
-  expanded = expanded.replace(/(\d+)\s*°C/gi, '$1 градусов по Цельсию');
-  expanded = expanded.replace(/(\d+)\s*%/gi, '$1 процентов');
   
   return expanded;
 }
