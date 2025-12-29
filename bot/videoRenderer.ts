@@ -497,11 +497,11 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         
         // CTA текст должен совпадать с текстом в начитке (server.ts)
         // ВАЖНО: используем одинарные кавычки, чтобы внутренние "Время правды" не ломали JS
-        const ctaText = 'О причинах учащения природных катастроф и прогнозах на ближайшие годы в последнем обращении Эгона Чолакяна на канале Время правды';
+        const ctaText = 'О причинах учащения природных катастроф и прогнозах на ближайшие годы в новом видео Эгона Чолакяна на канале Время правды';
         
-        ctx.font = '600 44px Arial, sans-serif';
+        ctx.font = '600 52px Arial, sans-serif';
         const ctaLines = getLines(ctx, ctaText, aboutW - aboutPadding * 2);
-        const ctaLineHeight = 52;
+        const ctaLineHeight = 60;
         const aboutTotalHeight = ctaLines.length * ctaLineHeight + aboutPadding * 2;
         
         // About block glow
@@ -536,7 +536,7 @@ async function createRendererPage(options: RenderOptions, videoUrls: string[], u
         // CTA text (совпадает с начиткой)
         ctx.save();
         ctx.fillStyle = 'white';
-        ctx.font = '600 44px Arial, sans-serif';
+        ctx.font = '600 52px Arial, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
         const ctaTextY = aboutY + aboutPadding;
